@@ -77,15 +77,16 @@ class EpicKitchensDataset(data.Dataset, ABC):
         raise NotImplementedError("You should implement _get_train_indices")
 
     def _get_val_indices(self, record, modality):
-        ##################################################################
-        # TODO: implement sampling for testing mode                      #
-        # Give the record and the modality, this function should return  #
-        # a list of integers representing the frames to be selected from #
-        # the video clip.                                                #
-        # Remember that the returned array should have size              #
-        #           num_clip x num_frames_per_clip                       #
-        ##################################################################
-        raise NotImplementedError("You should implement _get_val_indices")
+        indices = list()
+
+        if self.dense_sampling[modality]:
+            # dense sampling
+            indices = list()
+        else:
+            # uniform sampling
+            indices = list()
+
+        return indices
 
     def __getitem__(self, index):
 
