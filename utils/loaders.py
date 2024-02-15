@@ -1,5 +1,6 @@
 import glob
 from abc import ABC
+import random
 import pandas as pd
 from .epic_record import EpicVideoRecord
 import torch.utils.data as data
@@ -7,6 +8,8 @@ from PIL import Image
 import os
 import os.path
 from utils.logger import logger
+
+import numpy as np
 
 class EpicKitchensDataset(data.Dataset, ABC):
     def __init__(self, split, modalities, mode, dataset_conf, num_frames_per_clip, num_clips, dense_sampling,
@@ -74,9 +77,70 @@ class EpicKitchensDataset(data.Dataset, ABC):
         # Remember that the returned array should have size              #
         #           num_clip x num_frames_per_clip                       #
         ##################################################################
-        raise NotImplementedError("You should implement _get_train_indices")
+        start_frame = 0
+        end_frame = record.num_frames[modality]
+        
+        frames_per_clip = self.num_frames_per_clip[modality]
+        
+        selected_frames = []
+        
+        if self.dense_sampling.get(modality, False):
+            for _ in range(self.num_clips):
+                # If the number of frames of the clip is not sufficient
+                # the remaining ones are chosen randomly from the sequence
+                clip_frames = []
+                if record.num_frames[modality] < frames_per_clip:
+                    clip_frames = list(range(start_frame, end_frame+1))
+                    
+                    while len(clip_frames) < frames_per_clip:
+                        clip_frames.append(random.randint(start_frame, end_frame))
+                        
+                    clip_frames.sort()
+                
+                else:
+                    frames_per_side = (self.num_frames_per_clip[modality]-1)//2
+                    dead_select_zone = frames_per_side * self.stride
+                    
+                    center = random.randint(start_frame+dead_select_zone, end_frame-dead_select_zone)
+                    
+                    clip_frames = list(
+                        range(
+                            max(center-dead_select_zone-self.stride, start_frame), 
+                            min(center+dead_select_zone+self.stride, end_frame),
+                            self.stride
+                            )
+                        )
+                    
+                    if len(clip_frames) < frames_per_clip:
+                        available_frames = list(i for i in range(start_frame, end_frame+1) if i not in clip_frames)
+                        
+                        while len(clip_frames) < frames_per_clip:
+                            sel = random.choice(available_frames)
+                            clip_frames.append(sel)
+                            available_frames.remove(sel)
+                        
+                        clip_frames.sort()
+                        
+                selected_frames.append(clip_frames)
+        else:
+            for _ in range(self.num_clips):
+                stride = random.randint(1, end_frame//frames_per_clip)
+                
+                clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
+                clip_end_frame = clip_start_frame + stride * frames_per_clip
+                clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
+                
+                selected_frames.append(clip_frames)
+        
+        to_return = []
+        selected_frames.sort(key=lambda i: i[0])
+        for clip in selected_frames:
+            to_return.extend(clip)
+        
+        return to_return
+        # raise NotImplementedError("You should implement _get_train_indices")
 
-    def _get_val_indices(self, record, modality):
+    def _get_val_indices(self, record: EpicVideoRecord, modality):
         ##################################################################
         # TODO: implement sampling for testing mode                      #
         # Give the record and the modality, this function should return  #
@@ -85,7 +149,67 @@ class EpicKitchensDataset(data.Dataset, ABC):
         # Remember that the returned array should have size              #
         #           num_clip x num_frames_per_clip                       #
         ##################################################################
-        raise NotImplementedError("You should implement _get_val_indices")
+        start_frame = 0
+        end_frame = record.num_frames[modality]
+        
+        frames_per_clip = self.num_frames_per_clip[modality]
+        
+        selected_frames = []
+        
+        if self.dense_sampling.get(modality, False):
+            for _ in range(self.num_clips):
+                # If the number of frames of the clip is not sufficient
+                # the remaining ones are chosen randomly from the sequence
+                clip_frames = []
+                if record.num_frames[modality] < frames_per_clip:
+                    clip_frames = list(range(start_frame, end_frame+1))
+                    
+                    while len(clip_frames) < frames_per_clip:
+                        clip_frames.append(random.randint(start_frame, end_frame))
+                        
+                    clip_frames.sort()
+                
+                else:
+                    frames_per_side = (self.num_frames_per_clip[modality]-1)//2
+                    dead_select_zone = frames_per_side * self.stride
+                    
+                    center = random.randint(start_frame+dead_select_zone, end_frame-dead_select_zone)
+                    
+                    clip_frames = list(
+                        range(
+                            max(center-dead_select_zone-self.stride, start_frame), 
+                            min(center+dead_select_zone+self.stride, end_frame),
+                            self.stride
+                            )
+                        )
+                    
+                    if len(clip_frames) < frames_per_clip:
+                        available_frames = list(i for i in range(start_frame, end_frame+1) if i not in clip_frames)
+                        
+                        while len(clip_frames) < frames_per_clip:
+                            sel = random.choice(available_frames)
+                            clip_frames.append(sel)
+                            available_frames.remove(sel)
+                        
+                        clip_frames.sort()
+                        
+                selected_frames.append(clip_frames)
+        else:
+            for _ in range(self.num_clips):
+                stride = random.randint(1, end_frame//frames_per_clip)
+                
+                clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
+                clip_end_frame = clip_start_frame + stride * frames_per_clip
+                clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
+                
+                selected_frames.append(clip_frames)
+        
+        to_return = []
+        selected_frames.sort(key=lambda i: i[0])
+        for clip in selected_frames:
+            to_return.extend(clip)
+        
+        return to_return
 
     def __getitem__(self, index):
 
@@ -151,6 +275,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
                     .convert('RGB')
             except FileNotFoundError:
                 print("Img not found")
+                print(data_path, record.untrimmed_video_name, tmpl.format(idx_untrimmed), idx, record.start_frame)
                 max_idx_video = int(sorted(glob.glob(os.path.join(data_path,
                                                                   record.untrimmed_video_name,
                                                                   "img_*")))[-1].split("_")[-1].split(".")[0])
