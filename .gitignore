@@ -186,3 +186,7 @@ fabric.properties
 # .idea
 
 utils/output
+
+saved_models/I3D_*
+Experiment_logs/
+TEST_RESULTS/
