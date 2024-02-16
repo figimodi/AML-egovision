@@ -15,7 +15,7 @@ def plot_features(args):
     
     plot_3d = args.get('plot_3D', False)
     
-    central_features = []
+    reduced_features = []
     central_frames = []
     
     with open(features_path, 'rb') as f_file:
@@ -27,10 +27,8 @@ def plot_features(args):
         
         for d in data['features']:
             features = d['features_RGB']
-            reduced_features = pca.fit_transform(features)
-            central_rf: np.ndarray = reduced_features[len(reduced_features)//2].reshape(1, -1)
-            
-            central_features.append(central_rf)
+            features: np.ndarray = np.mean(features, 0)
+            reduced_features.append(features)
             
             s = [t for t, l in enumerate(samples['uid']) if l == d['uid']][0]
             sample_central_frame = samples['stop_frame'][s] - samples['start_frame'][s]
@@ -38,9 +36,10 @@ def plot_features(args):
             # TODO Generalize images naming
             img_path = os.path.join(base_image_path, f"{d['video_name']}/img_{sample_central_frame:010d}.jpg")
             central_frames.append(img_path)
-    
-    central_features = np.array(central_features)
-    central_features = central_features.reshape(central_features.shape[0], 3 if plot_3d else 2)
+
+    reduced_features = pca.fit_transform(reduced_features)
+    reduced_features = np.array(reduced_features)
+    reduced_features = reduced_features.reshape(reduced_features.shape[0], 3 if plot_3d else 2)
     
     if plot_3d:
         fig = plt.figure()
@@ -50,20 +49,20 @@ def plot_features(args):
     
     # TODO Generalize number of clusters
     km = KMeans(n_clusters=8, random_state=62)
-    km.fit(central_features)
+    km.fit(reduced_features)
     
-    predictions = km.predict(central_features)
+    predictions = km.predict(reduced_features)
     
     if not plot_3d and args.get('use_frames', False):
-        for i, coord in enumerate(central_features):
+        for i, coord in enumerate(reduced_features):
             imagebox = OffsetImage(plt.imread(central_frames[i]), zoom=0.06)
             ab = AnnotationBbox(imagebox, coord, frameon=False)
             ax.add_artist(ab)
             
     if plot_3d:
-        ax.scatter(central_features[:, 0], central_features[:, 1], central_features[:, 2], c=predictions)
+        ax.scatter(reduced_features[:, 0], reduced_features[:, 1], reduced_features[:, 2], c=predictions)
     else:
-        ax.scatter(central_features[:, 0], central_features[:, 1], c=predictions)
+        ax.scatter(reduced_features[:, 0], reduced_features[:, 1], c=predictions)
         
     plt.savefig(output_image_path, dpi=300)
     plt.show()

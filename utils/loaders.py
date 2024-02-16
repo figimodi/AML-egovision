@@ -156,30 +156,30 @@ class EpicKitchensDataset(data.Dataset, ABC):
         
         selected_frames = []
         
-        if self.dense_sampling.get(modality, False):
-            for _ in range(self.num_clips):
-                # If the number of frames of the clip is not sufficient
-                # the remaining ones are chosen randomly from the sequence
-                clip_frames = []
-                if record.num_frames[modality] < frames_per_clip:
-                    clip_frames = list(range(start_frame, end_frame+1))
-                    
-                    while len(clip_frames) < frames_per_clip:
-                        clip_frames.append(random.randint(start_frame, end_frame))
-                        
-                    clip_frames.sort()
+        for _ in range(self.num_clips):
+            # If the number of frames of the clip is not sufficient
+            # the remaining ones are chosen randomly from the sequence
+            clip_frames = []
+            if end_frame < frames_per_clip:
+                clip_frames = list(range(start_frame, end_frame))
                 
-                else:
-                    frames_per_side = (self.num_frames_per_clip[modality]-1)//2
-                    dead_select_zone = frames_per_side * self.stride
+                while len(clip_frames) < frames_per_clip:
+                    clip_frames.append(random.randint(start_frame, end_frame))
+                
+                clip_frames.sort()
+            
+            else:
+                if self.dense_sampling.get(modality, False):
+                    # frames_per_side = (self.num_frames_per_clip[modality]-1)//2
+                    dead_select_zone = frames_per_clip * (self.stride+1)
                     
-                    center = random.randint(start_frame+dead_select_zone, end_frame-dead_select_zone)
+                    clip_start_frame = random.randint(start_frame, max(start_frame, end_frame-dead_select_zone))
                     
                     clip_frames = list(
                         range(
-                            max(center-dead_select_zone-self.stride, start_frame), 
-                            min(center+dead_select_zone+self.stride, end_frame),
-                            self.stride
+                            clip_start_frame, 
+                            min(end_frame, clip_start_frame+dead_select_zone),
+                            self.stride+1
                             )
                         )
                     
@@ -192,17 +192,14 @@ class EpicKitchensDataset(data.Dataset, ABC):
                             available_frames.remove(sel)
                         
                         clip_frames.sort()
-                        
-                selected_frames.append(clip_frames)
-        else:
-            for _ in range(self.num_clips):
-                stride = random.randint(1, end_frame//frames_per_clip)
-                
-                clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
-                clip_end_frame = clip_start_frame + stride * frames_per_clip
-                clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
-                
-                selected_frames.append(clip_frames)
+                else:
+                    stride = random.randint(1, end_frame//frames_per_clip)
+                    
+                    clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
+                    clip_end_frame = clip_start_frame + stride * frames_per_clip
+                    clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
+            
+            selected_frames.append(clip_frames)
         
         to_return = []
         selected_frames.sort(key=lambda i: i[0])
