@@ -16,7 +16,6 @@ class LWP(nn.Module):
         
         self.classifier = nn.Sequential(
             self.pool1,
-            
             self.fc1,
             self.relu,
             self.fc2
