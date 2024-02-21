@@ -1,4 +1,5 @@
 from models.VideoModel import VideoModel
 from models.I3D import I3D
-from models.MLPClassifier import MLPClassifier
-from models.LSTMClassifier import LSTMClassifier
+from models.MLP import MLP
+from models.LSTM import LSTM 
+from models.RNN import RNN 

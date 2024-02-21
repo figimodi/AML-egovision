@@ -146,7 +146,7 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
         source_label = source_label.to(device)
         data = {}
 
-        if args.models.RGB.model == 'LSTMClassifier':
+        if args.models.RGB.model == 'LSTM' or args.models.RGB.model == 'RNN':
             # skip aggregation but concatenate features
             # source_data['RGB'].shape = (32, 1, 5120) containing the 5x1024 clips flattened
             source_data['RGB'] = source_data['RGB'].view(32, -1).unsqueeze(1)
@@ -222,7 +222,7 @@ def validate(model, val_loader, device, it, num_classes):
         for i_val, (data, label) in enumerate(val_loader):
             label = label.to(device)
 
-            if args.models.RGB.model == 'LSTMClassifier':
+            if args.models.RGB.model == 'LSTM' or args.models.RGB.model == 'RNN':
                 clips = {}
                 for m in modalities:
                     clips[m] = data[m].to(device)
