@@ -5,13 +5,8 @@ import torch
 class LSTMClassifier(nn.Module):
     def __init__(self, num_classes, input_size=1024, hidden_size=512):
         super().__init__()
-        """
-        [TODO]: the classifier should be implemented by the students and different variations of it can be tested
-        in order to understand which is the most performing one """
-        
-        # TODO: try dropout
-        self.lstm = nn.LSTM(input_size, hidden_size, 1, batch_first=True)
-        
+
+        self.lstm = nn.LSTM(input_size, hidden_size, 1, batch_first=True, dropout=0.4)
         self.relu = nn.ReLU()
         self.fc1 = nn.Linear(hidden_size, num_classes)
 
@@ -24,7 +19,7 @@ class LSTMClassifier(nn.Module):
         state = (h0, c0)
 
         out, state = self.lstm(x, state)
-        out = self.relu(out[:, -1, :])
-        out = self.fc1(out)
+        out = self.fc1(out[:, -1, :])
+        # out = self.relu(out)
         
         return out, {}

@@ -187,6 +187,6 @@ fabric.properties
 
 utils/output
 
-saved_models/I3D_*
+saved_models/
 Experiment_logs/
 TEST_RESULTS/
