@@ -1,6 +1,7 @@
 import glob
 from abc import ABC
 import random
+from emg_extract import emg_adjust_features_index
 import pandas as pd
 from .epic_record import EpicVideoRecord
 import torch.utils.data as data
@@ -10,6 +11,81 @@ import os.path
 from utils.logger import logger
 
 import numpy as np
+
+# Clear cutting board                                                                           8
+# Clean a plate with a towel                                                                    5
+# Pour water from a pitcher into a glass                                                        5
+# Get/replace items from refrigerator/cabinets/drawers                                          4
+# Peel a cucumber                                                                               3
+# Slice bread                                                                                   3
+# Clean a plate with a sponge                                                                   3
+# Open/close a jar of almond butter                                                             3
+# Spread jelly on a bread slice                                                                 3
+# Clean a pan with a towel                                                                      3
+# Spread almond butter on a bread slice                                                         3
+# Peel a potato                                                                                 3
+# Slice a potato                                                                                3
+# Slice a cucumber                                                                              2
+# Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils    2
+# Get items from refrigerator/cabinets/drawers                                                  2
+# Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils            1
+# Stack on table: 3 each large/small plates, bowls                                              1
+# Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils                  1
+# Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils          1
+
+emg_descriptions_to_labels = {
+    'Clear cutting board' : 0,
+    'Clean a plate with a towel' : 1,
+    'Pour water from a pitcher into a glass' : 2,
+    'Get/replace items from refrigerator/cabinets/drawers' : 3,
+    'Peel a cucumber' : 4,
+    'Slice bread' : 5,
+    'Clean a plate with a sponge' : 6,
+    'Open/close a jar of almond butter' : 7,
+    'Spread jelly on a bread slice' : 8,
+    'Clean a pan with a towel' : 9,
+    'Spread almond butter on a bread slice' : 10,
+    'Peel a potato' : 11,
+    'Slice a potato' : 12,
+    'Slice a cucumber' : 13,
+    'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils' : 14,
+    'Get items from refrigerator/cabinets/drawers' : 15,
+    'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils' : 16,
+    'Stack on table: 3 each large/small plates, bowls' : 17,
+    'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils' : 18,
+    'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils' : 19,
+}
+
+class EmgDataset(data.Dataset, ABC):
+    def __init__(self, data_path, index_file_split) -> None:
+        file_name = f'./action-net/ActionNet_{index_file_split}.pkl'
+        self.indices = pd.DataFrame(pd.read_pickle(file_name))
+        
+        temp_dict = {
+            'description': [],
+            'myo_left_readings': [],
+            'myo_right_readings': [],
+            # '': [],
+            # '': [],
+        }
+        
+        for i, row in self.indices.iterrows():
+            # print(i, row)
+            d = emg_adjust_features_index(os.path.join(data_path, row['file']), row['index'])
+            for k in temp_dict.keys():
+                temp_dict[k].append(d[k])
+            
+        self.data = pd.DataFrame(temp_dict)
+    
+    def __getitem__(self, index):
+        element = self.data.loc[index, 'myo_left_readings':'myo_right_readings']
+        label = emg_descriptions_to_labels[self.data.loc[index, 'description']]
+        
+        return element, label
+    
+    def __len__(self):
+        return len(self.data)
+    
 
 class EpicKitchensDataset(data.Dataset, ABC):
     def __init__(self, split, modalities, mode, dataset_conf, num_frames_per_clip, num_clips, dense_sampling,
@@ -84,7 +160,8 @@ class EpicKitchensDataset(data.Dataset, ABC):
         
         selected_frames = []
         
-        for _ in range(self.num_clips):
+        for nc in range(self.num_clips):
+            random.seed(nc + self.num_clips)
             # If the number of frames of the clip is not sufficient
             # the remaining ones are chosen randomly from the sequence
             clip_frames = []
@@ -98,21 +175,19 @@ class EpicKitchensDataset(data.Dataset, ABC):
             
             else:
                 if self.dense_sampling.get(modality, False):
-                    # frames_per_side = (self.num_frames_per_clip[modality]-1)//2
-                    dead_select_zone = frames_per_clip * (self.stride+1)
-                    
-                    clip_start_frame = random.randint(start_frame, max(start_frame, end_frame-dead_select_zone))
+                    frames_select_zone = (frames_per_clip-1)//2 * (self.stride+1)
+                    central_frame = end_frame//2 + nc - frames_per_clip//2
                     
                     clip_frames = list(
                         range(
-                            clip_start_frame, 
-                            min(end_frame, clip_start_frame+dead_select_zone),
+                            max(start_frame, central_frame - frames_select_zone), 
+                            min(end_frame, central_frame + frames_select_zone),
                             self.stride+1
                             )
                         )
                     
                     if len(clip_frames) < frames_per_clip:
-                        available_frames = list(i for i in range(start_frame, end_frame+1) if i not in clip_frames)
+                        available_frames = list(i for i in range(max(start_frame, central_frame - frames_select_zone), min(end_frame, central_frame + frames_select_zone)+1) if i not in clip_frames)
                         
                         while len(clip_frames) < frames_per_clip:
                             sel = random.choice(available_frames)
@@ -128,14 +203,13 @@ class EpicKitchensDataset(data.Dataset, ABC):
                     clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
             
             selected_frames.append(clip_frames)
-        
+            
         to_return = []
         selected_frames.sort(key=lambda i: i[0])
         for clip in selected_frames:
             to_return.extend(clip)
         
         return to_return
-        # raise NotImplementedError("You should implement _get_train_indices")
 
     def _get_val_indices(self, record: EpicVideoRecord, modality):
         ##################################################################
@@ -153,7 +227,8 @@ class EpicKitchensDataset(data.Dataset, ABC):
         
         selected_frames = []
         
-        for _ in range(self.num_clips):
+        for nc in range(self.num_clips):
+            random.seed(nc + self.num_clips)
             # If the number of frames of the clip is not sufficient
             # the remaining ones are chosen randomly from the sequence
             clip_frames = []
@@ -167,21 +242,19 @@ class EpicKitchensDataset(data.Dataset, ABC):
             
             else:
                 if self.dense_sampling.get(modality, False):
-                    # frames_per_side = (self.num_frames_per_clip[modality]-1)//2
-                    dead_select_zone = frames_per_clip * (self.stride+1)
-                    
-                    clip_start_frame = random.randint(start_frame, max(start_frame, end_frame-dead_select_zone))
+                    frames_select_zone = (frames_per_clip-1)//2 * (self.stride+1)
+                    central_frame = end_frame//2
                     
                     clip_frames = list(
                         range(
-                            clip_start_frame, 
-                            min(end_frame, clip_start_frame+dead_select_zone),
+                            max(start_frame, central_frame - frames_select_zone), 
+                            min(end_frame, central_frame + frames_select_zone),
                             self.stride+1
                             )
                         )
                     
                     if len(clip_frames) < frames_per_clip:
-                        available_frames = list(i for i in range(start_frame, end_frame+1) if i not in clip_frames)
+                        available_frames = list(i for i in range(max(start_frame, central_frame - frames_select_zone), min(end_frame, central_frame + frames_select_zone)+1) if i not in clip_frames)
                         
                         while len(clip_frames) < frames_per_clip:
                             sel = random.choice(available_frames)
@@ -197,7 +270,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
                     clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
             
             selected_frames.append(clip_frames)
-        
+            
         to_return = []
         selected_frames.sort(key=lambda i: i[0])
         for clip in selected_frames:
