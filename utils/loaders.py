@@ -98,8 +98,9 @@ class EpicKitchensDataset(data.Dataset, ABC):
             
             else:
                 if self.dense_sampling.get(modality, False):
+                    step = self.stride + 1
                     # frames_per_side = (self.num_frames_per_clip[modality]-1)//2
-                    dead_select_zone = frames_per_clip * (self.stride+1)
+                    dead_select_zone = frames_per_clip * (step)
                     
                     clip_start_frame = random.randint(start_frame, max(start_frame, end_frame-dead_select_zone))
                     
@@ -107,7 +108,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         range(
                             clip_start_frame, 
                             min(end_frame, clip_start_frame+dead_select_zone),
-                            self.stride+1
+                            step
                             )
                         )
                     
@@ -121,11 +122,12 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         
                         clip_frames.sort()
                 else:
-                    stride = random.randint(1, end_frame//frames_per_clip)
+                    higher_bound = end_frame//frames_per_clip
+                    step = max(1, random.randint(higher_bound//2, higher_bound))
                     
-                    clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
-                    clip_end_frame = clip_start_frame + stride * frames_per_clip
-                    clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
+                    clip_start_frame = random.randint(start_frame, end_frame-step*(frames_per_clip-1))
+                    clip_end_frame = clip_start_frame + step * frames_per_clip
+                    clip_frames = list(range(clip_start_frame, clip_end_frame, step))
             
             selected_frames.append(clip_frames)
         
@@ -167,8 +169,9 @@ class EpicKitchensDataset(data.Dataset, ABC):
             
             else:
                 if self.dense_sampling.get(modality, False):
+                    step = self.stride + 1
                     # frames_per_side = (self.num_frames_per_clip[modality]-1)//2
-                    dead_select_zone = frames_per_clip * (self.stride+1)
+                    dead_select_zone = frames_per_clip * (step)
                     
                     clip_start_frame = random.randint(start_frame, max(start_frame, end_frame-dead_select_zone))
                     
@@ -176,7 +179,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         range(
                             clip_start_frame, 
                             min(end_frame, clip_start_frame+dead_select_zone),
-                            self.stride+1
+                            step
                             )
                         )
                     
@@ -190,11 +193,12 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         
                         clip_frames.sort()
                 else:
-                    stride = random.randint(1, end_frame//frames_per_clip)
+                    higher_bound = end_frame//frames_per_clip
+                    step = max(1, random.randint(higher_bound//2, higher_bound))
                     
-                    clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
-                    clip_end_frame = clip_start_frame + stride * frames_per_clip
-                    clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
+                    clip_start_frame = random.randint(start_frame, end_frame-step*(frames_per_clip-1))
+                    clip_end_frame = clip_start_frame + step * frames_per_clip
+                    clip_frames = list(range(clip_start_frame, clip_end_frame, step))
             
             selected_frames.append(clip_frames)
         
