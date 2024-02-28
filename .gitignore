@@ -190,3 +190,5 @@ utils/output
 saved_models/
 Experiment_logs/
 TEST_RESULTS/
+rgb/
+colab_runner.ipynb
