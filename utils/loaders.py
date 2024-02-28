@@ -145,136 +145,116 @@ class EpicKitchensDataset(data.Dataset, ABC):
             self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
 
     def _get_train_indices(self, record, modality='RGB'):
-        ##################################################################
-        # TODO: implement sampling for training mode                     #
-        # Give the record and the modality, this function should return  #
-        # a list of integers representing the frames to be selected from #
-        # the video clip.                                                #
-        # Remember that the returned array should have size              #
-        #           num_clip x num_frames_per_clip                       #
-        ##################################################################
+        generated_clips = []
         start_frame = 0
-        end_frame = record.num_frames[modality]
-        
+        delta_center_frame = .1
+        num_frames = record.num_frames[modality]
+        end_frame = num_frames-1
         frames_per_clip = self.num_frames_per_clip[modality]
-        
-        selected_frames = []
-        
-        for nc in range(self.num_clips):
-            random.seed(nc + self.num_clips)
-            # If the number of frames of the clip is not sufficient
-            # the remaining ones are chosen randomly from the sequence
-            clip_frames = []
-            if end_frame < frames_per_clip:
-                clip_frames = list(range(start_frame, end_frame))
-                
-                while len(clip_frames) < frames_per_clip:
-                    clip_frames.append(random.randint(start_frame, end_frame))
-                
-                clip_frames.sort()
-            
-            else:
+        step = self.stride+1
+
+        if num_frames < frames_per_clip:
+            clip_frames = list(range(start_frame, end_frame+1))
+            clip.frames.extend(random.choices(clip.frames, k = frames_per_clip-len(clip.frames)))
+            clip_frames.sort()
+            to_return = clip_frames*nc
+        else:
+            for nc in range(self.num_clips):
+                clip_frames = []
+
                 if self.dense_sampling.get(modality, False):
-                    frames_select_zone = (frames_per_clip-1)//2 * (self.stride+1)
-                    central_frame = end_frame//2 + nc - frames_per_clip//2
+                    central_frame = (end_frame)//2 + random.randint(-int(num_frames*delta_center_frame), int(num_frames*delta_center_frame))
+                    frames_select_zone = ((frames_per_clip-1)*step)//2
+                    limit_sx = max(start_frame, central_frame - frames_select_zone)
+                    limit_dx = min(end_frame, central_frame + frames_select_zone)
+                    clip_frames = list(range(limit_sx, limit_dx+1, step))
                     
-                    clip_frames = list(
-                        range(
-                            max(start_frame, central_frame - frames_select_zone), 
-                            min(end_frame, central_frame + frames_select_zone),
-                            self.stride+1
-                            )
-                        )
-                    
+                    #if chosen frames aren't enough
                     if len(clip_frames) < frames_per_clip:
-                        available_frames = list(i for i in range(max(start_frame, central_frame - frames_select_zone), min(end_frame, central_frame + frames_select_zone)+1) if i not in clip_frames)
-                        
-                        while len(clip_frames) < frames_per_clip:
-                            sel = random.choice(available_frames)
-                            clip_frames.append(sel)
-                            available_frames.remove(sel)
-                        
-                        clip_frames.sort()
+                        remaining_frames = list(set(range(limit_sx, limit_dx+1)) - set(clip_frames))                        
+                        missing_number_clips = frames_per_clip - len(clip_frames)
+                        #if missing frames can be all taken from the frames that aren't already chosen
+                        if missing_number_clips<len(remaining_frames):
+                            clip_frames.extend(random.sample(remaining_frames, k=missing_number_clips))                        
+                        #if missing frames are at least as many as the frames that are not already chosen
+                        elif missing_number_clips >= remaining_frames:
+                            clip_frames.extend(remaining_frames)
+                            #if still are missing some frames (missing frames > len(remaining_frames))
+                            missing_number_clips-=len(remaining_frames)
+                            if(missing_number_clips>0):
+                                clip_frames.extend(random.choices(list(range(limit_sx, limit_dx+1)),k=missing_number_clips))
                 else:
-                    stride = random.randint(1, end_frame//frames_per_clip)
-                    
-                    clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
-                    clip_end_frame = clip_start_frame + stride * frames_per_clip
-                    clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
+                    higher_bound = end_frame//frames_per_clip
+                    step = max(1, random.randint(higher_bound//2, higher_bound)) 
+                
+                    clip_start_frame = random.randint(start_frame, end_frame-step*(frames_per_clip-1))
+                    clip_end_frame = clip_start_frame + step*(frames_per_clip-1)
+                    clip_frames = list(range(clip_start_frame, clip_end_frame+1, step))
+
+                clip_frames.sort()
+                generated_clips.append(clip_frames)
             
-            selected_frames.append(clip_frames)
-            
-        to_return = []
-        selected_frames.sort(key=lambda i: i[0])
-        for clip in selected_frames:
-            to_return.extend(clip)
+            to_return = []
+            generated_clips.sort(key=lambda i: i[0])
+            for clip in generated_clips:
+                to_return.extend(clip)
         
         return to_return
 
     def _get_val_indices(self, record: EpicVideoRecord, modality):
-        ##################################################################
-        # TODO: implement sampling for testing mode                      #
-        # Give the record and the modality, this function should return  #
-        # a list of integers representing the frames to be selected from #
-        # the video clip.                                                #
-        # Remember that the returned array should have size              #
-        #           num_clip x num_frames_per_clip                       #
-        ##################################################################
+        generated_clips = []
         start_frame = 0
-        end_frame = record.num_frames[modality]
-        
+        num_frames = record.num_frames[modality]
+        end_frame = num_frames-1
         frames_per_clip = self.num_frames_per_clip[modality]
-        
-        selected_frames = []
-        
-        for nc in range(self.num_clips):
-            random.seed(nc + self.num_clips)
-            # If the number of frames of the clip is not sufficient
-            # the remaining ones are chosen randomly from the sequence
-            clip_frames = []
-            if end_frame < frames_per_clip:
-                clip_frames = list(range(start_frame, end_frame))
-                
-                while len(clip_frames) < frames_per_clip:
-                    clip_frames.append(random.randint(start_frame, end_frame))
-                
-                clip_frames.sort()
-            
-            else:
+        step = self.stride+1
+
+        if num_frames < frames_per_clip:
+            clip_frames = list(range(start_frame, end_frame+1))
+            clip.frames.extend(random.choices(clip.frames, k = frames_per_clip-len(clip.frames)))
+            clip_frames.sort()
+            to_return = clip_frames*nc
+        else:
+            for nc in range(self.num_clips):
+                clip_frames = []
+
                 if self.dense_sampling.get(modality, False):
-                    frames_select_zone = (frames_per_clip-1)//2 * (self.stride+1)
-                    central_frame = end_frame//2
+                    central_frame = (end_frame)//2
+                    frames_select_zone = ((frames_per_clip-1)*step)//2
+                    limit_sx = max(start_frame, central_frame - frames_select_zone)
+                    limit_dx = min(end_frame, central_frame + frames_select_zone)
                     
-                    clip_frames = list(
-                        range(
-                            max(start_frame, central_frame - frames_select_zone), 
-                            min(end_frame, central_frame + frames_select_zone),
-                            self.stride+1
-                            )
-                        )
+                    clip_frames = list(range(limit_sx, limit_dx+1, step))
                     
+                    #if chosen frames aren't enough
                     if len(clip_frames) < frames_per_clip:
-                        available_frames = list(i for i in range(max(start_frame, central_frame - frames_select_zone), min(end_frame, central_frame + frames_select_zone)+1) if i not in clip_frames)
-                        
-                        while len(clip_frames) < frames_per_clip:
-                            sel = random.choice(available_frames)
-                            clip_frames.append(sel)
-                            available_frames.remove(sel)
-                        
-                        clip_frames.sort()
+                        remaining_frames = list(set(range(limit_sx, limit_dx+1)) - set(clip_frames))                        
+                        missing_number_clips = frames_per_clip - len(clip_frames)
+                        #if missing frames can be all taken from the frames that aren't already chosen
+                        if missing_number_clips<len(remaining_frames):
+                            clip_frames.extend(random.sample(remaining_frames, k=missing_number_clips))                        
+                        #if missing frames are at least as many as the frames that are not already chosen
+                        elif missing_number_clips >= remaining_frames:
+                            clip_frames.extend(remaining_frames)
+                            #if still are missing some frames (missing frames > len(remaining_frames))
+                            missing_number_clips-=len(remaining_frames)
+                            if(missing_number_clips>0):
+                                clip_frames.extend(random.choices(list(range(limit_sx, limit_dx+1)),k=missing_number_clips))
                 else:
-                    stride = random.randint(1, end_frame//frames_per_clip)
-                    
-                    clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
-                    clip_end_frame = clip_start_frame + stride * frames_per_clip
-                    clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
+                    higher_bound = end_frame//frames_per_clip
+                    step = max(1, (higher_bound - higher_bound//2)//2) 
+                
+                    clip_start_frame = start_frame + (end_frame-(num_frames-1)*step)//2
+                    clip_end_frame = clip_start_frame + step*(frames_per_clip-1)
+                    clip_frames = list(range(clip_start_frame, clip_end_frame+1, step))
+
+                clip_frames.sort()
+                generated_clips.append(clip_frames)
             
-            selected_frames.append(clip_frames)
-            
-        to_return = []
-        selected_frames.sort(key=lambda i: i[0])
-        for clip in selected_frames:
-            to_return.extend(clip)
+            to_return = []
+            generated_clips.sort(key=lambda i: i[0])
+            for clip in generated_clips:
+                to_return.extend(clip)
         
         return to_return
 
