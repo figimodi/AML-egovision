@@ -155,11 +155,11 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
         if num_frames < frames_per_clip:
             clip_frames = list(range(start_frame, end_frame+1))
-            clip.frames.extend(random.choices(clip.frames, k = frames_per_clip-len(clip.frames)))
+            clip_frames.extend(random.choices(clip_frames, k = frames_per_clip-len(clip_frames)))
             clip_frames.sort()
-            to_return = clip_frames*nc
+            to_return = clip_frames*self.num_clips
         else:
-            for nc in range(self.num_clips):
+            for _ in range(self.num_clips):
                 clip_frames = []
 
                 if self.dense_sampling.get(modality, False):
@@ -211,50 +211,46 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
         if num_frames < frames_per_clip:
             clip_frames = list(range(start_frame, end_frame+1))
-            clip.frames.extend(random.choices(clip.frames, k = frames_per_clip-len(clip.frames)))
+            clip_frames.extend(random.choices(clip_frames, k = frames_per_clip-len(clip_frames)))
             clip_frames.sort()
-            to_return = clip_frames*nc
+            to_return = clip_frames*self.num_clips
         else:
-            for nc in range(self.num_clips):
-                clip_frames = []
+            clip_frames = []
 
-                if self.dense_sampling.get(modality, False):
-                    central_frame = (end_frame)//2
-                    frames_select_zone = ((frames_per_clip-1)*step)//2
-                    limit_sx = max(start_frame, central_frame - frames_select_zone)
-                    limit_dx = min(end_frame, central_frame + frames_select_zone)
-                    
-                    clip_frames = list(range(limit_sx, limit_dx+1, step))
-                    
-                    #if chosen frames aren't enough
-                    if len(clip_frames) < frames_per_clip:
-                        remaining_frames = list(set(range(limit_sx, limit_dx+1)) - set(clip_frames))                        
-                        missing_number_clips = frames_per_clip - len(clip_frames)
-                        #if missing frames can be all taken from the frames that aren't already chosen
-                        if missing_number_clips<len(remaining_frames):
-                            clip_frames.extend(random.sample(remaining_frames, k=missing_number_clips))                        
-                        #if missing frames are at least as many as the frames that are not already chosen
-                        elif missing_number_clips >= remaining_frames:
-                            clip_frames.extend(remaining_frames)
-                            #if still are missing some frames (missing frames > len(remaining_frames))
-                            missing_number_clips-=len(remaining_frames)
-                            if(missing_number_clips>0):
-                                clip_frames.extend(random.choices(list(range(limit_sx, limit_dx+1)),k=missing_number_clips))
-                else:
-                    higher_bound = end_frame//frames_per_clip
-                    step = max(1, (higher_bound - higher_bound//2)//2) 
+            if self.dense_sampling.get(modality, False):
+                central_frame = (end_frame)//2
+                frames_select_zone = ((frames_per_clip-1)*step)//2
+                limit_sx = max(start_frame, central_frame - frames_select_zone)
+                limit_dx = min(end_frame, central_frame + frames_select_zone)
                 
-                    clip_start_frame = start_frame + (end_frame-(num_frames-1)*step)//2
-                    clip_end_frame = clip_start_frame + step*(frames_per_clip-1)
-                    clip_frames = list(range(clip_start_frame, clip_end_frame+1, step))
-
-                clip_frames.sort()
-                generated_clips.append(clip_frames)
+                clip_frames = list(range(limit_sx, limit_dx+1, step))
+                
+                #if chosen frames aren't enough
+                if len(clip_frames) < frames_per_clip:
+                    remaining_frames = list(set(range(limit_sx, limit_dx+1)) - set(clip_frames))                        
+                    missing_number_clips = frames_per_clip - len(clip_frames)
+                    #if missing frames can be all taken from the frames that aren't already chosen
+                    if missing_number_clips<len(remaining_frames):
+                        clip_frames.extend(random.sample(remaining_frames, k=missing_number_clips))                        
+                    #if missing frames are at least as many as the frames that are not already chosen
+                    elif missing_number_clips >= remaining_frames:
+                        clip_frames.extend(remaining_frames)
+                        #if still are missing some frames (missing frames > len(remaining_frames))
+                        missing_number_clips-=len(remaining_frames)
+                        if(missing_number_clips>0):
+                            clip_frames.extend(random.choices(list(range(limit_sx, limit_dx+1)),k=missing_number_clips))
+            else:
+                higher_bound = end_frame//frames_per_clip
+                step = max(1, (higher_bound - higher_bound//2)//2) 
             
-            to_return = []
-            generated_clips.sort(key=lambda i: i[0])
-            for clip in generated_clips:
-                to_return.extend(clip)
+                clip_start_frame = start_frame + (end_frame-(num_frames-1)*step)//2
+                clip_end_frame = clip_start_frame + step*(frames_per_clip-1)
+                clip_frames = list(range(clip_start_frame, clip_end_frame+1, step))
+
+            clip_frames.sort()
+            generated_clips.append(clip_frames)
+            
+            to_return = clip_frames*self.num_clips
         
         return to_return
 
