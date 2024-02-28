@@ -154,10 +154,8 @@ class EpicKitchensDataset(data.Dataset, ABC):
         
         if end_frame < tot_num_frames:
             selected_frames = list(range(start_frame, end_frame))
-
-            while len(selected_frames) < tot_num_frames:
-                selected_frames.append(random.randint(start_frame, end_frame))
-
+            duplicates = random.choices(list(range(start_frame, end_frame)), k=tot_num_frames-len(selected_frames))
+            selected_frames.extend(duplicates)
             selected_frames.sort()
         else:
             if self.dense_sampling.get(modality, False):
@@ -180,11 +178,8 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         if i not in selected_frames
                         )
                 
-                    while len(selected_frames) < tot_num_frames:
-                        sel = random.choice(available_frames)
-                        selected_frames.append(sel)
-                        available_frames.remove(sel)
-
+                    duplicates = random.choices(available_frames, k=tot_num_frames-len(selected_frames))
+                    selected_frames.extend(duplicates)
                     selected_frames.sort()
                 
             else:
@@ -220,10 +215,8 @@ class EpicKitchensDataset(data.Dataset, ABC):
         
         if end_frame < tot_num_frames:
             selected_frames = list(range(start_frame, end_frame))
-
-            while len(selected_frames) < tot_num_frames:
-                selected_frames.append(random.randint(start_frame, end_frame))
-
+            duplicates = random.choices(list(range(start_frame, end_frame)), k=tot_num_frames-len(selected_frames))
+            selected_frames.extend(duplicates)
             selected_frames.sort()
         else:
             if self.dense_sampling.get(modality, False):
@@ -246,10 +239,9 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         if i not in selected_frames
                         )
                 
-                    while len(selected_frames) < tot_num_frames:
-                        sel = random.choice(available_frames)
-                        selected_frames.append(sel)
-                        available_frames.remove(sel)
+                    duplicates = random.choices(available_frames, k=tot_num_frames-len(selected_frames))
+                    selected_frames.extend(duplicates)
+                    selected_frames.sort()
                 
             else:
                 # Uniform Sampling
