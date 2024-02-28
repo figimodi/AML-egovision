@@ -139,12 +139,31 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
             source_data, source_label = next(data_loader_source)
         end_t = datetime.now()
 
-        logger.info(f"Iteration {i}/{training_iterations} batch retrieved! Elapsed time = "
-                    f"{(end_t - start_t).total_seconds() // 60} m {(end_t - start_t).total_seconds() % 60} s")
+        # logger.info(f"Iteration {i}/{training_iterations} batch retrieved! Elapsed time = "
+        #             f"{(end_t - start_t).total_seconds() // 60} m {(end_t - start_t).total_seconds() % 60} s")
 
         ''' Action recognition'''
         source_label = source_label.to(device)
         data = {}
+
+        if args.models.RGB.model == 'LSTM' or args.models.RGB.model == 'RNN':
+            # skip aggregation but concatenate features
+            # source_data['RGB'].shape = (32, 1, 5120) containing the 5x1024 clips flattened
+            source_data['RGB'] = source_data['RGB'].view(32, -1).unsqueeze(1)
+        else:
+            # aggregate features along temporal axis with a pooling layer
+            # pooling_layer = torch.nn.MaxPool2d(kernel_size=(5, 1))
+            # source_data['RGB'].shape = (32, 1, 1024)
+            pooling_layer = torch.nn.AvgPool2d(kernel_size=(5, 1))
+            source_data['RGB'] = pooling_layer(source_data['RGB'])
+
+            # aggregate features along the temporal axis with a convolutional layer
+            # source_data['RGB'].shape = (32, 1, 1024)
+            # conv_layer = torch.nn.Conv1d(in_channels=1024, out_channels=1024, kernel_size=5)
+            # data_permuted = source_data['RGB'].permute(0, 2, 1)
+            # conv_output = conv_layer(data_permuted)
+            # conv_output_permuted = conv_output.permute(0, 2, 1)
+            # source_data['RGB'] = conv_output_permuted
 
         for clip in range(args.train.num_clips):
             # in case of multi-clip training one clip per time is processed
@@ -203,21 +222,28 @@ def validate(model, val_loader, device, it, num_classes):
         for i_val, (data, label) in enumerate(val_loader):
             label = label.to(device)
 
-            for m in modalities:
-                batch = data[m].shape[0]
-                logits[m] = torch.zeros((args.test.num_clips, batch, num_classes)).to(device)
-
-            clip = {}
-            for i_c in range(args.test.num_clips):
+            if args.models.RGB.model == 'LSTM' or args.models.RGB.model == 'RNN':
+                clips = {}
                 for m in modalities:
-                    clip[m] = data[m][:, i_c].to(device)
-
-                output, _ = model(clip)
+                    clips[m] = data[m].to(device)
+                    output, _ = model(clips)
+                    logits[m] = output[m]
+            else:
                 for m in modalities:
-                    logits[m][i_c] = output[m]
+                    batch = data[m].shape[0]
+                    logits[m] = torch.zeros((args.test.num_clips, batch, num_classes)).to(device)
 
-            for m in modalities:
-                logits[m] = torch.mean(logits[m], dim=0)
+                clip = {}
+                for i_c in range(args.test.num_clips):
+                    for m in modalities:
+                        clip[m] = data[m][:, i_c].to(device)
+
+                    output, _ = model(clip)
+                    for m in modalities:
+                        logits[m][i_c] = output[m]
+
+                for m in modalities:
+                    logits[m] = torch.mean(logits[m], dim=0)
 
             model.compute_accuracy(logits, label)
 

@@ -190,3 +190,6 @@ utils/output
 saved_models/I3D_*
 Experiment_logs/
 TEST_RESULTS/
+
+saved_models/
+colab_runner.ipynb
