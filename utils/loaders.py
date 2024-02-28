@@ -144,139 +144,127 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
             self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
 
+
     def _get_train_indices(self, record, modality='RGB'):
-        ##################################################################
-        # TODO: implement sampling for training mode                     #
-        # Give the record and the modality, this function should return  #
-        # a list of integers representing the frames to be selected from #
-        # the video clip.                                                #
-        # Remember that the returned array should have size              #
-        #           num_clip x num_frames_per_clip                       #
-        ##################################################################
         start_frame = 0
         end_frame = record.num_frames[modality]
-        
         frames_per_clip = self.num_frames_per_clip[modality]
-        
+        tot_num_frames = frames_per_clip*self.num_clips
         selected_frames = []
         
-        for nc in range(self.num_clips):
-            random.seed(nc + self.num_clips)
-            # If the number of frames of the clip is not sufficient
-            # the remaining ones are chosen randomly from the sequence
-            clip_frames = []
-            if end_frame < frames_per_clip:
-                clip_frames = list(range(start_frame, end_frame))
-                
-                while len(clip_frames) < frames_per_clip:
-                    clip_frames.append(random.randint(start_frame, end_frame))
-                
-                clip_frames.sort()
-            
-            else:
-                if self.dense_sampling.get(modality, False):
-                    frames_select_zone = (frames_per_clip-1)//2 * (self.stride+1)
-                    central_frame = end_frame//2 + nc - frames_per_clip//2
-                    
-                    clip_frames = list(
-                        range(
-                            max(start_frame, central_frame - frames_select_zone), 
-                            min(end_frame, central_frame + frames_select_zone),
-                            self.stride+1
-                            )
+        if end_frame < tot_num_frames:
+            selected_frames = list(range(start_frame, end_frame))
+
+            while len(selected_frames) < tot_num_frames:
+                selected_frames.append(random.randint(start_frame, end_frame))
+
+            selected_frames.sort()
+        else:
+            if self.dense_sampling.get(modality, False):
+                # Dense Sampling
+                central_frame = end_frame // 2
+                step = self.stride + 1
+                frame_per_side = (tot_num_frames - 1) // 2 * step
+
+                selected_frames = list(
+                    range(
+                        max(start_frame, central_frame - frame_per_side),
+                        min(end_frame, central_frame + frame_per_side),
+                        step
                         )
-                    
-                    if len(clip_frames) < frames_per_clip:
-                        available_frames = list(i for i in range(max(start_frame, central_frame - frames_select_zone), min(end_frame, central_frame + frames_select_zone)+1) if i not in clip_frames)
-                        
-                        while len(clip_frames) < frames_per_clip:
-                            sel = random.choice(available_frames)
-                            clip_frames.append(sel)
-                            available_frames.remove(sel)
-                        
-                        clip_frames.sort()
-                else:
-                    stride = random.randint(1, end_frame//frames_per_clip)
-                    
-                    clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
-                    clip_end_frame = clip_start_frame + stride * frames_per_clip
-                    clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
-            
-            selected_frames.append(clip_frames)
-            
-        to_return = []
-        selected_frames.sort(key=lambda i: i[0])
-        for clip in selected_frames:
-            to_return.extend(clip)
+                    )
+
+                if len(selected_frames) < tot_num_frames:
+                    available_frames = list(
+                        i for i in range(max(start_frame, central_frame - frame_per_side), min(end_frame, central_frame + frame_per_side) + 1) 
+                        if i not in selected_frames
+                        )
+                
+                    while len(selected_frames) < tot_num_frames:
+                        sel = random.choice(available_frames)
+                        selected_frames.append(sel)
+                        available_frames.remove(sel)
+
+                    selected_frames.sort()
+                
+            else:
+                # Uniform Sampling
+                higher_bound = end_frame//tot_num_frames
+                step = max(1, random.randint(higher_bound//2, higher_bound))
+                central_frame = end_frame // 2
+                frame_per_side = (end_frame - 1) // 2 * step
+                clips_start_frame = central_frame - step * frame_per_side
+                clips_end_frame = central_frame + step * frame_per_side
+                
+                selected_frames = list(range(clips_start_frame, clips_end_frame, step))
+
+            # Add randomization
+            clips = np.array(selected_frames).reshape(self.num_clips, frames_per_clip)
+            for i in range(self.num_clips):
+                rnd = random.random()
+                if rnd < 0.3:
+                    clips[i] = [min(f + 1, end_frame) for f in clips[i]]
+                elif rnd > 0.6:
+                    clips[i] = [max(f - 1, start_frame) for f in clips[i]]
+
+            selected_frames = clips.reshape(1, tot_num_frames).tolist()[0]
         
-        return to_return
+        return selected_frames
 
     def _get_val_indices(self, record: EpicVideoRecord, modality):
-        ##################################################################
-        # TODO: implement sampling for testing mode                      #
-        # Give the record and the modality, this function should return  #
-        # a list of integers representing the frames to be selected from #
-        # the video clip.                                                #
-        # Remember that the returned array should have size              #
-        #           num_clip x num_frames_per_clip                       #
-        ##################################################################
         start_frame = 0
         end_frame = record.num_frames[modality]
-        
         frames_per_clip = self.num_frames_per_clip[modality]
-        
+        tot_num_frames = frames_per_clip*self.num_clips
         selected_frames = []
         
-        for nc in range(self.num_clips):
-            random.seed(nc + self.num_clips)
-            # If the number of frames of the clip is not sufficient
-            # the remaining ones are chosen randomly from the sequence
-            clip_frames = []
-            if end_frame < frames_per_clip:
-                clip_frames = list(range(start_frame, end_frame))
-                
-                while len(clip_frames) < frames_per_clip:
-                    clip_frames.append(random.randint(start_frame, end_frame))
-                
-                clip_frames.sort()
-            
-            else:
-                if self.dense_sampling.get(modality, False):
-                    frames_select_zone = (frames_per_clip-1)//2 * (self.stride+1)
-                    central_frame = end_frame//2
-                    
-                    clip_frames = list(
-                        range(
-                            max(start_frame, central_frame - frames_select_zone), 
-                            min(end_frame, central_frame + frames_select_zone),
-                            self.stride+1
-                            )
+        if end_frame < tot_num_frames:
+            selected_frames = list(range(start_frame, end_frame))
+
+            while len(selected_frames) < tot_num_frames:
+                selected_frames.append(random.randint(start_frame, end_frame))
+
+            selected_frames.sort()
+        else:
+            if self.dense_sampling.get(modality, False):
+                # Dense Sampling
+                central_frame = end_frame // 2
+                step = self.stride + 1
+                frame_per_side = (tot_num_frames - 1) // 2 * step
+
+                selected_frames = list(
+                    range(
+                        max(start_frame, central_frame - frame_per_side),
+                        min(end_frame, central_frame + frame_per_side),
+                        step
                         )
-                    
-                    if len(clip_frames) < frames_per_clip:
-                        available_frames = list(i for i in range(max(start_frame, central_frame - frames_select_zone), min(end_frame, central_frame + frames_select_zone)+1) if i not in clip_frames)
-                        
-                        while len(clip_frames) < frames_per_clip:
-                            sel = random.choice(available_frames)
-                            clip_frames.append(sel)
-                            available_frames.remove(sel)
-                        
-                        clip_frames.sort()
-                else:
-                    stride = random.randint(1, end_frame//frames_per_clip)
-                    
-                    clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
-                    clip_end_frame = clip_start_frame + stride * frames_per_clip
-                    clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
-            
-            selected_frames.append(clip_frames)
-            
-        to_return = []
-        selected_frames.sort(key=lambda i: i[0])
-        for clip in selected_frames:
-            to_return.extend(clip)
+                    )
+                
+                if len(selected_frames) < tot_num_frames:
+                    available_frames = list(
+                        i for i in range(max(start_frame, central_frame - frame_per_side), min(end_frame, central_frame + frame_per_side) + 1) 
+                        if i not in selected_frames
+                        )
+                
+                    while len(selected_frames) < tot_num_frames:
+                        sel = random.choice(available_frames)
+                        selected_frames.append(sel)
+                        available_frames.remove(sel)
+                
+            else:
+                # Uniform Sampling
+                higher_bound = end_frame//tot_num_frames
+                step = max(1, random.randint(higher_bound//2, higher_bound))
+                central_frame = end_frame // 2
+                frame_per_side = (end_frame - 1) // 2 * step
+                clips_start_frame = central_frame - step * frame_per_side
+                clips_end_frame = central_frame + step * frame_per_side
+                
+                selected_frames = list(range(clips_start_frame, clips_end_frame, step))
+
+        selected_frames.sort()
         
-        return to_return
+        return selected_frames
 
     def __getitem__(self, index):
 
