@@ -152,14 +152,6 @@ class EpicKitchensDataset(data.Dataset, ABC):
             self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
 
     def _get_train_indices(self, record, modality='RGB'):
-        ##################################################################
-        # TODO: implement sampling for training mode                     #
-        # Give the record and the modality, this function should return  #
-        # a list of integers representing the frames to be selected from #
-        # the video clip.                                                #
-        # Remember that the returned array should have size              #
-        #           num_clip x num_frames_per_clip                       #
-        ##################################################################
         start_frame = 0
         end_frame = record.num_frames[modality]
         
@@ -182,14 +174,17 @@ class EpicKitchensDataset(data.Dataset, ABC):
             
             else:
                 if self.dense_sampling.get(modality, False):
-                    frames_select_zone = (frames_per_clip-1)//2 * (self.stride+1)
-                    central_frame = end_frame//2 + nc - frames_per_clip//2
+                    step = self.stride + 1
+                    # frames_per_side = (self.num_frames_per_clip[modality]-1)//2
+                    dead_select_zone = frames_per_clip * (step)
+                    
+                    clip_start_frame = random.randint(start_frame, max(start_frame, end_frame-dead_select_zone))
                     
                     clip_frames = list(
                         range(
-                            max(start_frame, central_frame - frames_select_zone), 
-                            min(end_frame, central_frame + frames_select_zone),
-                            self.stride+1
+                            clip_start_frame, 
+                            min(end_frame, clip_start_frame+dead_select_zone),
+                            step
                             )
                         )
                     
@@ -203,11 +198,12 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         
                         clip_frames.sort()
                 else:
-                    stride = random.randint(1, end_frame//frames_per_clip)
+                    higher_bound = end_frame//frames_per_clip
+                    step = max(1, random.randint(higher_bound//2, higher_bound))
                     
-                    clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
-                    clip_end_frame = clip_start_frame + stride * frames_per_clip
-                    clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
+                    clip_start_frame = random.randint(start_frame, end_frame-step*(frames_per_clip-1))
+                    clip_end_frame = clip_start_frame + step * frames_per_clip
+                    clip_frames = list(range(clip_start_frame, clip_end_frame, step))
             
             selected_frames.append(clip_frames)
             
@@ -219,14 +215,6 @@ class EpicKitchensDataset(data.Dataset, ABC):
         return to_return
 
     def _get_val_indices(self, record: EpicVideoRecord, modality):
-        ##################################################################
-        # TODO: implement sampling for testing mode                      #
-        # Give the record and the modality, this function should return  #
-        # a list of integers representing the frames to be selected from #
-        # the video clip.                                                #
-        # Remember that the returned array should have size              #
-        #           num_clip x num_frames_per_clip                       #
-        ##################################################################
         start_frame = 0
         end_frame = record.num_frames[modality]
         
@@ -249,14 +237,17 @@ class EpicKitchensDataset(data.Dataset, ABC):
             
             else:
                 if self.dense_sampling.get(modality, False):
-                    frames_select_zone = (frames_per_clip-1)//2 * (self.stride+1)
-                    central_frame = end_frame//2
+                    step = self.stride + 1
+                    # frames_per_side = (self.num_frames_per_clip[modality]-1)//2
+                    dead_select_zone = frames_per_clip * (step)
+                    
+                    clip_start_frame = random.randint(start_frame, max(start_frame, end_frame-dead_select_zone))
                     
                     clip_frames = list(
                         range(
-                            max(start_frame, central_frame - frames_select_zone), 
-                            min(end_frame, central_frame + frames_select_zone),
-                            self.stride+1
+                            clip_start_frame, 
+                            min(end_frame, clip_start_frame+dead_select_zone),
+                            step
                             )
                         )
                     
@@ -270,11 +261,12 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         
                         clip_frames.sort()
                 else:
-                    stride = random.randint(1, end_frame//frames_per_clip)
+                    higher_bound = end_frame//frames_per_clip
+                    step = max(1, random.randint(higher_bound//2, higher_bound))
                     
-                    clip_start_frame = random.randint(start_frame, end_frame-stride*(frames_per_clip-1))
-                    clip_end_frame = clip_start_frame + stride * frames_per_clip
-                    clip_frames = list(range(clip_start_frame, clip_end_frame, stride))
+                    clip_start_frame = random.randint(start_frame, end_frame-step*(frames_per_clip-1))
+                    clip_end_frame = clip_start_frame + step * frames_per_clip
+                    clip_frames = list(range(clip_start_frame, clip_end_frame, step))
             
             selected_frames.append(clip_frames)
             
