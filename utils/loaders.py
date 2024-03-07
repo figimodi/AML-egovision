@@ -1,7 +1,7 @@
 import glob
 from abc import ABC
 import random
-from emg_extract import emg_adjust_features_index
+from emg_extract import emg_adjust_features
 import pandas as pd
 from .epic_record import EpicVideoRecord
 import torch.utils.data as data
@@ -33,28 +33,28 @@ import numpy as np
 # Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils                  1
 # Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils          1
 
-emg_descriptions_to_labels = {
-    'Clear cutting board' : 0,
-    'Clean a plate with a towel' : 1,
-    'Pour water from a pitcher into a glass' : 2,
-    'Get/replace items from refrigerator/cabinets/drawers' : 3,
-    'Peel a cucumber' : 4,
-    'Slice bread' : 5,
-    'Clean a plate with a sponge' : 6,
-    'Open/close a jar of almond butter' : 7,
-    'Spread jelly on a bread slice' : 8,
-    'Clean a pan with a towel' : 9,
-    'Spread almond butter on a bread slice' : 10,
-    'Peel a potato' : 11,
-    'Slice a potato' : 12,
-    'Slice a cucumber' : 13,
-    'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils' : 14,
-    'Get items from refrigerator/cabinets/drawers' : 15,
-    'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils' : 16,
-    'Stack on table: 3 each large/small plates, bowls' : 17,
-    'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils' : 18,
-    'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils' : 19,
-}
+emg_descriptions_to_labels = [
+    'Clear cutting board',
+    'Clean a plate with a towel',
+    'Pour water from a pitcher into a glass',
+    'Get/replace items from refrigerator/cabinets/drawers',
+    'Peel a cucumber',
+    'Slice bread',
+    'Clean a plate with a sponge',
+    'Open/close a jar of almond butter',
+    'Spread jelly on a bread slice',
+    'Clean a pan with a towel',
+    'Spread almond butter on a bread slice',
+    'Peel a potato',
+    'Slice a potato',
+    'Slice a cucumber',
+    'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
+    'Get items from refrigerator/cabinets/drawers',
+    'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
+    'Stack on table: 3 each large/small plates, bowls',
+    'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
+    'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
+]
 
 class EmgDataset(data.Dataset, ABC):
     def __init__(self, data_path, index_file_split) -> None:
@@ -69,17 +69,24 @@ class EmgDataset(data.Dataset, ABC):
             # '': [],
         }
         
+        readings = {}
+        
         for i, row in self.indices.iterrows():
-            # print(i, row)
-            d = emg_adjust_features_index(os.path.join(data_path, row['file']), row['index'])
-            for k in temp_dict.keys():
-                temp_dict[k].append(d[k])
+            if i == 0:
+                continue
             
+            file = row['file']
+            if file not in readings:
+                readings[file] = emg_adjust_features(os.path.join(data_path, row['file']))
+            
+            for k in temp_dict.keys():
+                temp_dict[k].append(readings[file][k][row['index']])
+
         self.data = pd.DataFrame(temp_dict)
     
     def __getitem__(self, index):
         element = self.data.loc[index, 'myo_left_readings':'myo_right_readings']
-        label = emg_descriptions_to_labels[self.data.loc[index, 'description']]
+        label = emg_descriptions_to_labels.index(self.data.loc[index, 'description'])
         
         return element, label
     

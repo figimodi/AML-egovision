@@ -2,11 +2,13 @@ import pandas as pd
 from scipy.signal import butter, filtfilt
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
+import numpy as np
 
 def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_order: int = 4):
     data = pd.DataFrame(pd.read_pickle(file_path))
     to_read = ['myo_right', 'myo_left']
 
+    # Absolute value of the readings and application of low pass filter
     for side in to_read:
         for i, _ in data.iterrows():
             if i != 0:
@@ -23,12 +25,34 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
                 b, a = butter(filter_order, wn, 'low', analog=False)
                 filtered = filtfilt(b, a, row.T, padlen=1).T
                 
-                # Normalize in [-1, 1]
-                scaler = MinMaxScaler(feature_range=(-1, 1))
-                filtered = scaler.fit_transform(filtered)
+                data.at[i, side + '_readings'] = filtered
+                
+    # Normalization with L2 norm
+    for side in to_read:
+        flat_side_data = [it for sub in data.loc[1:, side + '_readings'].apply(lambda x: x) for rd in sub for it in rd]
+        l2norm = np.linalg.norm(flat_side_data)
+        
+        for i, _ in data.iterrows():
+            if i != 0:
+                row = data.loc[i, side + '_readings']
+                normalized = row / l2norm
+                
+                data.at[i, side + '_readings'] = normalized
+    
+    # Shift of the value range in [-1, 1]
+    for side in to_read:
+        flat_side_data = [it for sub in data.loc[1:, side + '_readings'].apply(lambda x: x) for rd in sub for it in rd]
+        mx = max(flat_side_data)
+        mn = min(flat_side_data)
+        
+        for i, _ in data.iterrows():
+            if i != 0:
+                row = data.loc[i, side + '_readings']
+                # Normalize and shift in [-1, 1]
+                normalized = (row - mn) * 2 / (mx-mn) - 1
                 
                 # Forearm activation
-                activation = filtered.sum(1)
+                activation = normalized.sum(1)
                 
                 data.at[i, side + '_readings'] = activation
         
