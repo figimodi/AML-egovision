@@ -151,16 +151,15 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
             self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
 
-
     def _get_train_indices(self, record, modality='RGB'):
         start_frame = 0
         end_frame = record.num_frames[modality]
+        
         frames_per_clip = self.num_frames_per_clip[modality]
-        tot_num_frames = frames_per_clip*self.num_clips
+        
         selected_frames = []
         
-        for nc in range(self.num_clips):
-            random.seed(nc + self.num_clips)
+        for _ in range(self.num_clips):
             # If the number of frames of the clip is not sufficient
             # the remaining ones are chosen randomly from the sequence
             clip_frames = []
@@ -189,7 +188,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         )
                     
                     if len(clip_frames) < frames_per_clip:
-                        available_frames = list(i for i in range(max(start_frame, central_frame - frames_select_zone), min(end_frame, central_frame + frames_select_zone)+1) if i not in clip_frames)
+                        available_frames = list(i for i in range(start_frame, end_frame+1) if i not in clip_frames)
                         
                         while len(clip_frames) < frames_per_clip:
                             sel = random.choice(available_frames)
@@ -206,23 +205,23 @@ class EpicKitchensDataset(data.Dataset, ABC):
                     clip_frames = list(range(clip_start_frame, clip_end_frame, step))
             
             selected_frames.append(clip_frames)
-            
+        
         to_return = []
         selected_frames.sort(key=lambda i: i[0])
         for clip in selected_frames:
             to_return.extend(clip)
         
-        return selected_frames
+        return to_return
 
     def _get_val_indices(self, record: EpicVideoRecord, modality):
         start_frame = 0
         end_frame = record.num_frames[modality]
+        
         frames_per_clip = self.num_frames_per_clip[modality]
-        tot_num_frames = frames_per_clip*self.num_clips
+        
         selected_frames = []
         
-        for nc in range(self.num_clips):
-            random.seed(nc + self.num_clips)
+        for _ in range(self.num_clips):
             # If the number of frames of the clip is not sufficient
             # the remaining ones are chosen randomly from the sequence
             clip_frames = []
@@ -251,7 +250,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         )
                     
                     if len(clip_frames) < frames_per_clip:
-                        available_frames = list(i for i in range(max(start_frame, central_frame - frames_select_zone), min(end_frame, central_frame + frames_select_zone)+1) if i not in clip_frames)
+                        available_frames = list(i for i in range(start_frame, end_frame+1) if i not in clip_frames)
                         
                         while len(clip_frames) < frames_per_clip:
                             sel = random.choice(available_frames)
@@ -268,13 +267,13 @@ class EpicKitchensDataset(data.Dataset, ABC):
                     clip_frames = list(range(clip_start_frame, clip_end_frame, step))
             
             selected_frames.append(clip_frames)
-            
+        
         to_return = []
         selected_frames.sort(key=lambda i: i[0])
         for clip in selected_frames:
             to_return.extend(clip)
         
-        return selected_frames
+        return to_return
 
     def __getitem__(self, index):
 

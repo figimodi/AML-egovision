@@ -28,18 +28,18 @@ def plot_features_PCA(args):
         with open(samples_path, 'rb') as s_file:
             samples = pk.load(s_file)
         
-        # dictionary of label: list_of_action
-        label_actions = defaultdict(set)
-        for idx in range(len(samples)):
-            label_actions[samples['verb_class'][idx]].add(samples['verb'][idx])
+            # dictionary of label: list_of_action
+            label_actions = defaultdict(set)
+            for idx in range(len(samples)):
+                label_actions[samples['verb_class'][idx]].add(samples['verb'][idx])
 
-        for label, acts in label_actions.items():
-            label_actions[label] = ', '.join(acts)
+            for label, acts in label_actions.items():
+                label_actions[label] = ', '.join(acts)
 
-        for d in data['features']:
-            features = d['features_RGB']
-            features: np.ndarray = np.mean(features, 0)
-            reduced_features.append(features)
+            for d in data['features']:
+                features = d['features_RGB']
+                features: np.ndarray = np.mean(features, 0)
+                reduced_features.append(features)
 
             s = [t for t, l in enumerate(samples['uid']) if l == d['uid']][0]
             sample_central_frame = samples['start_frame'][s] + (samples['stop_frame'][s] - samples['start_frame'][s])//2
@@ -132,17 +132,17 @@ def plot_features_LDA(args):
         with open(samples_path, 'rb') as s_file:
             samples = pk.load(s_file)
         
-        # dictionary of label: list_of_action
-        label_actions = defaultdict(set)
-        for idx in range(len(samples)):
-            label_actions[samples['verb_class'][idx]].add(samples['verb'][idx])
+            # dictionary of label: list_of_action
+            label_actions = defaultdict(set)
+            for idx in range(len(samples)):
+                label_actions[samples['verb_class'][idx]].add(samples['verb'][idx])
 
-        for label, acts in label_actions.items():
-            label_actions[label] = ', '.join(acts)
+            for label, acts in label_actions.items():
+                label_actions[label] = ', '.join(acts)
 
-        extracted_samples = np.array([x['features_RGB'] for x in data['features']])
-        extracted_samples = np.mean(extracted_samples, 1)
-        labels = samples['verb_class']
+            extracted_samples = np.array([x['features_RGB'] for x in data['features']])
+            extracted_samples = np.mean(extracted_samples, 1)
+            labels = samples['verb_class']
 
     extracted_samples = lda.fit_transform(extracted_samples, labels)
     extracted_samples = np.array(extracted_samples)
