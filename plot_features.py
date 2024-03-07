@@ -36,20 +36,16 @@ def plot_features_PCA(args):
             for label, acts in label_actions.items():
                 label_actions[label] = ', '.join(acts)
 
-            for d in data['features']:
-                features = d['features_RGB']
-                features: np.ndarray = np.mean(features, 0)
-                reduced_features.append(features)
+            reduced_features = [x['features_RGB'] for x in data['features']]
+            reduced_features = np.mean(reduced_features, 1)
 
-            s = [t for t, l in enumerate(samples['uid']) if l == d['uid']][0]
-            sample_central_frame = samples['start_frame'][s] + (samples['stop_frame'][s] - samples['start_frame'][s])//2
-            
-            label = samples['verb_class'][s]
-            actions.append(label_actions[label])
+            labels = samples['verb_class']
+            actions = [label_actions[label] for label in labels] 
 
-            # TODO Generalize images naming
-            img_path = os.path.join(base_image_path, f"{d['video_name']}/img_{sample_central_frame:010d}.jpg")
-            central_frames.append(img_path)
+            sample_central_frames = samples['start_frame'] + (samples['stop_frame'] - samples['start_frame'])//2
+
+            video_names = [x['video_name'] for x in data['features']]
+            central_frames = [os.path.join(base_image_path, f"{video_names[idx]}/img_{sample_central_frames[idx]:010d}.jpg") for idx in range(len(video_names))]
 
     reduced_features = pca.fit_transform(reduced_features)
     reduced_features = np.array(reduced_features)
@@ -167,7 +163,4 @@ if __name__ == '__main__':
     # plot_features_PCA(cli_args)
     plot_features_LDA(cli_args)
 
-    plot_features_
-
-    # TODO: try LDA, isomap, t-sne (scikitlearn)
-    # TODO: fix code PCA (remove for loop for d in data[...], take a look at LDA code)
+    # TODO: try isomap, t-sne (scikitlearn)
