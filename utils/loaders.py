@@ -151,12 +151,12 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
             self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
 
+
     def _get_train_indices(self, record, modality='RGB'):
         start_frame = 0
         end_frame = record.num_frames[modality]
-        
         frames_per_clip = self.num_frames_per_clip[modality]
-        
+        tot_num_frames = frames_per_clip*self.num_clips
         selected_frames = []
         
         for nc in range(self.num_clips):
@@ -212,14 +212,13 @@ class EpicKitchensDataset(data.Dataset, ABC):
         for clip in selected_frames:
             to_return.extend(clip)
         
-        return to_return
+        return selected_frames
 
     def _get_val_indices(self, record: EpicVideoRecord, modality):
         start_frame = 0
         end_frame = record.num_frames[modality]
-        
         frames_per_clip = self.num_frames_per_clip[modality]
-        
+        tot_num_frames = frames_per_clip*self.num_clips
         selected_frames = []
         
         for nc in range(self.num_clips):
@@ -275,7 +274,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
         for clip in selected_frames:
             to_return.extend(clip)
         
-        return to_return
+        return selected_frames
 
     def __getitem__(self, index):
 
