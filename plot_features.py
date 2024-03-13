@@ -2,6 +2,7 @@ import os
 import pickle as pk
 import numpy as np
 from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
@@ -20,10 +21,10 @@ def plot_features_PCA(args):
     reduced_features = []
     central_frames = []
     actions = []
+    pca = PCA(3 if plot_3d else 2)
 
     with open(features_path, 'rb') as f_file:
         data = pk.load(f_file)
-        pca = PCA(3 if plot_3d else 2)
         
         with open(samples_path, 'rb') as s_file:
             samples = pk.load(s_file)
@@ -118,12 +119,12 @@ def plot_features_LDA(args):
     output_image_path = args.get('output_image_path', os.path.join('plots/test.png'))
 
     NUM_CLASSES = 8
-    reduced_features = []
+    extracted_samples = []
     labels = []
-
+    lda = LinearDiscriminantAnalysis(n_components=2)
+    
     with open(features_path, 'rb') as f_file:
         data = pk.load(f_file)
-        lda = LinearDiscriminantAnalysis(n_components=2)
         
         with open(samples_path, 'rb') as s_file:
             samples = pk.load(s_file)
@@ -156,11 +157,98 @@ def plot_features_LDA(args):
     plt.savefig(output_image_path, dpi=300)
     plt.show()
 
+def plot_features_TSNE(args):
+    features_path = args.get('features_path', os.path.join('./saved_features/SAVE_DENSE-extracted_D1_test.pkl'))
+    samples_path = args.get('split_path', os.path.join('./train_val/D1_test.pkl'))
+    base_image_path = args.get('images_path', os.path.join('../ek_data/frames/'))
+    output_image_path = args.get('output_image_path', os.path.join('plots/test.png'))
+
+    NUM_CLASSES = 8
+    extracted_samples = []
+    labels = []
+    actions = []
+
+    # use PCA or LDA before using t-sne
+    pca = PCA(50)
+    lda = LinearDiscriminantAnalysis(n_components=50)
+    tsne = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=3)
+
+    with open(features_path, 'rb') as f_file:
+        data = pk.load(f_file)
+        
+        with open(samples_path, 'rb') as s_file:
+            samples = pk.load(s_file)
+        
+            # dictionary of label: list_of_action
+            label_actions = defaultdict(set)
+            for idx in range(len(samples)):
+                label_actions[samples['verb_class'][idx]].add(samples['verb'][idx])
+
+            for label, acts in label_actions.items():
+                label_actions[label] = ', '.join(acts)
+
+            extracted_samples = np.array([x['features_RGB'] for x in data['features']])
+            extracted_samples = np.mean(extracted_samples, 1)
+            
+            labels = samples['verb_class']
+            actions = [label_actions[label] for label in labels] 
+
+    extracted_samples = pca.fit_transform(extracted_samples)
+    extracted_samples = np.array(extracted_samples)
+    extracted_samples = extracted_samples.reshape(extracted_samples.shape[0], 50)
+
+    # apply t-sne
+    extracted_samples = tsne.fit_transform(extracted_samples)
+    extracted_samples = np.array(extracted_samples)
+    extracted_samples = extracted_samples.reshape(extracted_samples.shape[0], 2)
+
+    km = KMeans(n_clusters=8, random_state=62)
+    km.fit(extracted_samples)
+    predictions = km.predict(extracted_samples)
+    plt.scatter(extracted_samples[:, 0], extracted_samples[:, 1], c=predictions)
+
+    # Making a list of [(coordinates), action]
+    coord_action = []
+    for i, coord in enumerate(extracted_samples):
+        coord_action.append((actions[i], coord))
+
+    # Group by the first element of each tuple
+    grouped_data = defaultdict(list)
+    for action, coordinates in coord_action:
+        grouped_data[action].append(coordinates)
+
+    average_coord_per_action = defaultdict()
+    for action, coordinates in grouped_data.items():
+        # Extract x-coordinates and y-coordinates into separate lists
+        x_coordinates = [x for x, y in coordinates]
+        y_coordinates = [y for x, y in coordinates]
+        # Calculate the mean of x-coordinates and y-coordinates
+        x_mean = sum(x_coordinates) / len(coordinates)
+        y_mean = sum(y_coordinates) / len(coordinates)
+        average_coord_per_action[action] = (x_mean, y_mean)
+
+    # Define a list of markers
+    markers = ['o', '^', 's', 'p', 'P', '*', 'D', 'v']
+    marker_iter = iter(markers)
+
+    # Plot each point with a different marker
+    for action, coordinate in average_coord_per_action.items():
+        x, y = coordinate
+        marker = next(marker_iter)
+        plt.scatter(x, y, marker=marker, s=200, edgecolor='black', linewidths=2, label=action)
+        plt.legend(fontsize='small', markerscale=0.7, loc="upper right")
+
+    plt.gcf().set_size_inches(10, 7)
+    plt.savefig(output_image_path, dpi=300)
+    plt.show()
+
+    return
 
 if __name__ == '__main__':
     cli_args = OmegaConf.from_cli()
     print(cli_args)
     # plot_features_PCA(cli_args)
-    plot_features_LDA(cli_args)
+    # plot_features_LDA(cli_args)
+    plot_features_TSNE(cli_args)
 
     # TODO: try isomap, t-sne (scikitlearn)
