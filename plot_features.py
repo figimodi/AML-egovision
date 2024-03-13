@@ -111,7 +111,6 @@ def plot_features_PCA(args):
     plt.savefig(output_image_path, dpi=300)
     plt.show()
 
-
 def plot_features_LDA(args):
     features_path = args.get('features_path', os.path.join('./saved_features/SAVE_DENSE-extracted_D1_test.pkl'))
     samples_path = args.get('split_path', os.path.join('./train_val/D1_test.pkl'))
@@ -144,6 +143,68 @@ def plot_features_LDA(args):
     extracted_samples = lda.fit_transform(extracted_samples, labels)
     extracted_samples = np.array(extracted_samples)
     extracted_samples = extracted_samples.reshape(extracted_samples.shape[0],  2)
+    
+    color = iter(plt.cm.rainbow(np.linspace(0, 1, NUM_CLASSES)))
+
+    for label in range(NUM_CLASSES):
+        cl = next(color)
+        class_samples = np.array([extracted_samples[j] for j in range(len(extracted_samples)) if labels[j] == label])
+        plt.scatter(class_samples[:, 0], class_samples[:, 1], c=cl, label=label_actions[label])
+
+    plt.legend(fontsize='small', loc='upper right')
+    plt.gcf().set_size_inches(10, 7)
+    plt.savefig(output_image_path, dpi=300)
+    plt.show()
+
+def plot_features_PCA_LDA(args):
+    features_path = args.get('features_path', os.path.join('./saved_features/uniform_25_D1_test.pkl'))
+    samples_path = args.get('split_path', os.path.join('./train_val/D1_test.pkl'))
+    base_image_path = args.get('images_path', os.path.join('../ek_data/frames/'))
+    output_image_path = args.get('output_image_path', os.path.join('plots/PCA_LDA/uniform/uniform_25_test_woim_PCA_LDA.png'))
+
+    retained_variance = .98
+    
+    reduced_features_pca = []
+        
+    pca = PCA(n_components=200)
+    data, samples = None, None
+
+    with open(features_path, 'rb') as f_file, open(samples_path, 'rb') as s_file:
+        data = pk.load(f_file)
+        samples = pk.load(s_file)
+    
+    # dictionary of label: list_of_action
+    label_actions = defaultdict(set)
+    for idx in range(len(samples)):
+        label_actions[samples['verb_class'][idx]].add(samples['verb'][idx])
+
+    for label, acts in label_actions.items():
+        label_actions[label] = ', '.join(acts)
+
+    features = [x['features_RGB'] for x in data['features']]
+    features = np.mean(features, 1)
+
+    labels = samples['verb_class']
+
+    reduced_features_pca = pca.fit_transform(features)
+
+    for k, v in enumerate(pca.explained_variance_ratio_.cumsum()):
+        if v >= retained_variance:
+            break
+
+    k += 1
+
+    indexes = pca.explained_variance_.argsort()[::-1][:k]
+    reduced_features_pca = reduced_features_pca[:,indexes]
+
+    NUM_CLASSES = 8
+
+    lda = LinearDiscriminantAnalysis(n_components=2, solver='svd')
+
+    print(reduced_features_pca.shape)
+    print(len(labels))
+
+    extracted_samples = lda.fit_transform(reduced_features_pca, labels, )
     
     color = iter(plt.cm.rainbow(np.linspace(0, 1, NUM_CLASSES)))
 
@@ -249,6 +310,7 @@ if __name__ == '__main__':
     print(cli_args)
     # plot_features_PCA(cli_args)
     # plot_features_LDA(cli_args)
+    # plot_features_PCA_LDA(cli_args)
     plot_features_TSNE(cli_args)
 
     # TODO: try isomap, t-sne (scikitlearn)
