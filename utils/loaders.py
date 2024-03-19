@@ -56,7 +56,20 @@ emg_descriptions_to_labels = [
     'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
 ]
 
-class EmgDataset(data.Dataset, ABC):
+# class ActionNetRgbDataset(data.Dataset, ABC):
+#     def __init__(self, data_path, index_file_split) -> None:
+#         # TODO: to implement
+#         return
+    
+#     def __getitem__(self, index):
+#         # TODO: to implement
+#         return 
+
+#     def __len__(self):
+#         return len(self.data)
+
+
+class ActionNetEmgDataset(data.Dataset, ABC):
     def __init__(self, data_path, index_file_split) -> None:
         file_name = f'./action-net/ActionNet_{index_file_split}.pkl'
         self.indices = pd.DataFrame(pd.read_pickle(file_name))

@@ -19,14 +19,19 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
                 # Low-pass filter 5 Hz
                 fs = times.size / (times[-1]-times[0])
 
+                # TODO: why is fs not 160? sometimes is more sometimes is less
+                # TODO: maybe onw just filter with fs=160 is enough
+
                 nyq = 0.5 * fs
                 wn = cut_frequency / nyq
-                
+
                 b, a = butter(filter_order, wn, 'low', analog=False)
                 filtered = filtfilt(b, a, row.T, padlen=1).T
-                
+
                 data.at[i, side + '_readings'] = filtered
-                
+
+    # TODO: how to do normalization ? is L2 norm ok ? is the normalization per each action or on the whole dataset / we can also use batch norm layer
+    # TODO: use the statistics calculated on training to the testing phase
     # Normalization with L2 norm
     for side in to_read:
         flat_side_data = [it for sub in data.loc[1:, side + '_readings'].apply(lambda x: x) for rd in sub for it in rd]
@@ -51,6 +56,7 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
                 # Normalize and shift in [-1, 1]
                 normalized = (row - mn) * 2 / (mx-mn) - 1
                 
+                # TODO: avoid summation because input of lstm is 100x16 instead of 100x1 (slack confirmed 5th february)
                 # Forearm activation
                 activation = normalized.sum(1)
                 

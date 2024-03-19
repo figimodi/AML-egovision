@@ -230,9 +230,9 @@ def plot_features_TSNE(args):
     actions = []
 
     # use PCA or LDA before using t-sne
-    pca = PCA(50)
-    lda = LinearDiscriminantAnalysis(n_components=50)
-    tsne = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=3)
+    PCA_COMPONENTS = 50
+    pca = PCA(PCA_COMPONENTS)
+    tsne = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=30)
 
     with open(features_path, 'rb') as f_file:
         data = pk.load(f_file)
@@ -256,50 +256,58 @@ def plot_features_TSNE(args):
 
     extracted_samples = pca.fit_transform(extracted_samples)
     extracted_samples = np.array(extracted_samples)
-    extracted_samples = extracted_samples.reshape(extracted_samples.shape[0], 50)
+    extracted_samples = extracted_samples.reshape(extracted_samples.shape[0], PCA_COMPONENTS)
 
     # apply t-sne
     extracted_samples = tsne.fit_transform(extracted_samples)
     extracted_samples = np.array(extracted_samples)
     extracted_samples = extracted_samples.reshape(extracted_samples.shape[0], 2)
 
-    km = KMeans(n_clusters=8, random_state=62)
-    km.fit(extracted_samples)
-    predictions = km.predict(extracted_samples)
-    plt.scatter(extracted_samples[:, 0], extracted_samples[:, 1], c=predictions)
+    # km = KMeans(n_clusters=8, random_state=62)
+    # km.fit(extracted_samples)
+    # predictions = km.predict(extracted_samples)
+    # plt.scatter(extracted_samples[:, 0], extracted_samples[:, 1], c=predictions)
 
-    # Making a list of [(coordinates), action]
-    coord_action = []
-    for i, coord in enumerate(extracted_samples):
-        coord_action.append((actions[i], coord))
+    color = iter(plt.cm.rainbow(np.linspace(0, 1, NUM_CLASSES)))
 
-    # Group by the first element of each tuple
-    grouped_data = defaultdict(list)
-    for action, coordinates in coord_action:
-        grouped_data[action].append(coordinates)
+    for label in range(NUM_CLASSES):
+        cl = next(color)
+        class_samples = np.array([extracted_samples[j] for j in range(len(extracted_samples)) if labels[j] == label])
+        plt.scatter(class_samples[:, 0], class_samples[:, 1], c=cl, label=label_actions[label])
 
-    average_coord_per_action = defaultdict()
-    for action, coordinates in grouped_data.items():
-        # Extract x-coordinates and y-coordinates into separate lists
-        x_coordinates = [x for x, y in coordinates]
-        y_coordinates = [y for x, y in coordinates]
-        # Calculate the mean of x-coordinates and y-coordinates
-        x_mean = sum(x_coordinates) / len(coordinates)
-        y_mean = sum(y_coordinates) / len(coordinates)
-        average_coord_per_action[action] = (x_mean, y_mean)
+    # # Making a list of [(coordinates), action]
+    # coord_action = []
+    # for i, coord in enumerate(extracted_samples):
+    #     coord_action.append((actions[i], coord))
 
-    # Define a list of markers
-    markers = ['o', '^', 's', 'p', 'P', '*', 'D', 'v']
-    marker_iter = iter(markers)
+    # # Group by the first element of each tuple
+    # grouped_data = defaultdict(list)
+    # for action, coordinates in coord_action:
+    #     grouped_data[action].append(coordinates)
 
-    # Plot each point with a different marker
-    for action, coordinate in average_coord_per_action.items():
-        x, y = coordinate
-        marker = next(marker_iter)
-        plt.scatter(x, y, marker=marker, s=200, edgecolor='black', linewidths=2, label=action)
-        plt.legend(fontsize='small', markerscale=0.7, loc="upper right")
+    # average_coord_per_action = defaultdict()
+    # for action, coordinates in grouped_data.items():
+    #     # Extract x-coordinates and y-coordinates into separate lists
+    #     x_coordinates = [x for x, y in coordinates]
+    #     y_coordinates = [y for x, y in coordinates]
+    #     # Calculate the mean of x-coordinates and y-coordinates
+    #     x_mean = sum(x_coordinates) / len(coordinates)
+    #     y_mean = sum(y_coordinates) / len(coordinates)
+    #     average_coord_per_action[action] = (x_mean, y_mean)
 
-    plt.gcf().set_size_inches(10, 7)
+    # # Define a list of markers
+    # markers = ['o', '^', 's', 'p', 'P', '*', 'D', 'v']
+    # marker_iter = iter(markers)
+
+    # # Plot each point with a different marker
+    # for action, coordinate in average_coord_per_action.items():
+    #     x, y = coordinate
+    #     marker = next(marker_iter)
+    #     plt.scatter(x, y, marker=marker, s=200, edgecolor='black', linewidths=2, label=action)
+    #     plt.legend(fontsize='small', markerscale=0.7, loc="upper right")
+
+    plt.legend(fontsize='small', markerscale=0.7, loc="lower right")
+    plt.gcf().set_size_inches(12, 8)
     plt.savefig(output_image_path, dpi=300)
     plt.show()
 
@@ -313,4 +321,4 @@ if __name__ == '__main__':
     # plot_features_PCA_LDA(cli_args)
     plot_features_TSNE(cli_args)
 
-    # TODO: try isomap, t-sne (scikitlearn)
+    # TODO: try isomap, density-based clustering vs actual labels, use some different clustering algorithms from k-means (DBSCAN)
