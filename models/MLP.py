@@ -22,6 +22,8 @@ class MLP(nn.Module):
         #     self.fc3,
         # )
 
+        # TODO: add more layers
+
         self.classifier = self.clf
 
     def forward(self, x):
