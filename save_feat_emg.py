@@ -4,8 +4,10 @@ from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import os
 
-def chunk_timestamps_and_readings(left_timestamps, left_readings, rigth_timestamps, right_readings):
+
+def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestamps, right_readings):
     # Initialize empty lists to store the chunks and readings
     left_chunks = [[]]
     right_chunks = [[]]
@@ -15,11 +17,11 @@ def chunk_timestamps_and_readings(left_timestamps, left_readings, rigth_timestam
     # Initialize variables to track the current chunk start and end
     left_chunk_start = left_timestamps[0]
     left_chunk_end = left_chunk_start + 5
-    right_chunk_start = rigth_timestamps[0]
+    right_chunk_start = right_timestamps[0]
     right_chunk_end = right_chunk_start + 5
     
     # Iterate over each time in both left and right lists
-    for left_time, right_time, left_reading, right_reading in zip(left_timestamps, rigth_timestamps, left_readings, right_readings):
+    for left_time, left_reading in zip(left_timestamps, left_readings):
         # Check if the left time is within the current left chunk
         if left_time < left_chunk_end:
             left_chunks[-1].append(left_time)
@@ -31,6 +33,8 @@ def chunk_timestamps_and_readings(left_timestamps, left_readings, rigth_timestam
             left_chunk_start = left_time
             left_chunk_end = left_chunk_start + 5
         
+    # Iterate over each time in both right and right lists
+    for right_time, right_reading in zip(right_timestamps, right_readings):
         # Check if the right time is within the current right chunk
         if right_time < right_chunk_end:
             right_chunks[-1].append(right_time)
@@ -52,23 +56,25 @@ def increment_samples(file_path: str):
         if i == 0:
             continue
         left_timestamps_chunks, right_timestamps_chunks, left_readings_chunks, right_readings_chunks = chunk_timestamps_and_readings(data.loc[i, 'myo_left_timestamps'], data.loc[i, 'myo_left_readings'], data.loc[i, 'myo_right_timestamps'], data.loc[i, 'myo_right_readings'])
+
+        if len(left_timestamps_chunks) < len(right_timestamps_chunks):
+            right_timestamps_chunks = right_timestamps_chunks[:-1]
+            right_readings_chunks = right_readings_chunks[:-1]
         if len(left_timestamps_chunks) > len(right_timestamps_chunks):
             left_timestamps_chunks = left_timestamps_chunks[:-1]
             left_readings_chunks = left_readings_chunks[:-1]
-        elif len(left_timestamps_chunks) < len(right_timestamps_chunks):
-            right_timestamps_chunks = right_timestamps_chunks[:-1]
-            right_readings_chunks = right_readings_chunks[:-1]
 
         n_chunks = len(left_timestamps_chunks)
-        for i in range(n_chunks):
+
+        for c in range(n_chunks):
             new_row = {
                 'description': data.loc[i, 'description'],
-                'start': min(left_timestamps_chunks[i][0], right_timestamps_chunks[i][0]),
-                'stop': min(left_timestamps_chunks[i][-1], right_timestamps_chunks[i][-1]),
-                'myo_left_timestamps': left_timestamps_chunks[i],
-                'myo_left_readings': left_readings_chunks[i],
-                'myo_right_timestamps': right_timestamps_chunks[i],
-                'myo_right_readings': right_readings_chunks[i]
+                'start': min(left_timestamps_chunks[c][0], right_timestamps_chunks[c][0]),
+                'stop': min(left_timestamps_chunks[c][-1], right_timestamps_chunks[c][-1]),
+                'myo_left_timestamps': left_timestamps_chunks[c],
+                'myo_left_readings': left_readings_chunks[c],
+                'myo_right_timestamps': right_timestamps_chunks[c],
+                'myo_right_readings': right_readings_chunks[c]
                 }
             new_data.append(new_row)
 
@@ -76,7 +82,37 @@ def increment_samples(file_path: str):
     new_data = pd.DataFrame(new_data)
 
     # Save the DataFrame to a pickle file
-    new_data.to_pickle(f'{file_path}_augmented.pkl')
+    file_name, file_extension = os.path.splitext(file_path)
+    new_data.to_pickle(f'{file_name}_augmented.pkl')
+
+# TODO: code to be used to prepare spilt train and test for rgb action net
+# def setup_pickle_rgb(file_path: str):
+#     data = pd.DataFrame(pd.read_pickle(file_path))
+#     new_data = []
+
+#     for i, _ in data.iterrows():
+#         new_row = {
+#             'uid': i,
+#             'participant_id': 'P04',
+#             'video_id': 'P04_01',
+#             'narration': data.loc[i, 'description'],
+#             'start_timestamp': data.loc[i, 'start'],
+#             'stop_timestamp': data.loc[i, 'stop'],
+#             'start_frame': data.loc[i, 'start'] * 29.67,
+#             'stop_frame': data.loc[i, 'stop'] * 29.67,
+#             'verb': data.loc[i, 'description'],
+#             'verb_class': emg_descriptions_to_labels.index(data.loc[i, 'description']),
+#         }
+
+#         new_data.append(new_row)
+
+#     # Convert the list of dictionaries to a DataFrame
+#     new_data = pd.DataFrame(new_data)
+
+#     # Save the DataFrame to a pickle file
+#     file_name, file_extension = os.path.splitext(file_path)
+#     new_data.to_pickle(f'{file_name}_rgb.pkl')
+
 
 def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_order: int = 4):
     data = pd.DataFrame(pd.read_pickle(file_path))
@@ -172,13 +208,14 @@ def emg_adjust_features_index(file_path: str, index: int, *, cut_frequency: floa
     return transformed
 
 if __name__ == '__main__':
-    increment_samples('emg/S04_1.pkl')
-
+    setup_pickle_rgb('emg/S04_1_augmented.pkl')
+            
 
 # TODO: augmentation
 # TODO: read sepctogram, why?
 # TODO: divide each sample in 5 seconds segment
 # TODO: saples are not balanced maybe
+# TODO: split train and test must be modified for emg
 
 # frame_rate = 108771/3385
 # 14m18s

@@ -18,7 +18,7 @@ dataset:
   resolution: 224
   RGB:
     data_path: ???
-    tmpl: "img_{:010d}.jpg"
+    tmpl: "img_{:010d}.jpg" # TODO: change into frame_{:010d}.jpg for action net
   Event:
     rgb4e: 6
 

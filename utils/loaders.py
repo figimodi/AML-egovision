@@ -1,7 +1,7 @@
 import glob
 from abc import ABC
 import random
-from emg_extract import emg_adjust_features
+from save_feat_emg import emg_adjust_features
 import pandas as pd
 from .epic_record import EpicVideoRecord
 import torch.utils.data as data
@@ -154,7 +154,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
             self.model_features = None
             for m in self.modalities:
                 # load features for each modality
-                model_features = pd.DataFrame(pd.read_pickle(os.path.join("saved_features",
+                model_features = pd.DataFrame(pd.read_pickle(os.path.join("saved_features/epic_kitchen",
                                                                           self.dataset_conf[m].features_name + "_" +
                                                                           pickle_name))['features'])[["uid", "features_" + m]]
                 if self.model_features is None:
