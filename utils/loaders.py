@@ -12,48 +12,52 @@ from utils.logger import logger
 
 import numpy as np
 
-# Clear cutting board                                                                           8
-# Clean a plate with a towel                                                                    5
-# Pour water from a pitcher into a glass                                                        5
-# Get/replace items from refrigerator/cabinets/drawers                                          4
-# Peel a cucumber                                                                               3
-# Slice bread                                                                                   3
-# Clean a plate with a sponge                                                                   3
-# Open/close a jar of almond butter                                                             3
-# Spread jelly on a bread slice                                                                 3
-# Clean a pan with a towel                                                                      3
-# Spread almond butter on a bread slice                                                         3
-# Peel a potato                                                                                 3
-# Slice a potato                                                                                3
-# Slice a cucumber                                                                              2
-# Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils    2
-# Get items from refrigerator/cabinets/drawers                                                  2
-# Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils            1
-# Stack on table: 3 each large/small plates, bowls                                              1
-# Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils                  1
-# Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils          1
+# 0. Clean a pan with a sponge
+# 1. Clean a pan with a towel
+# 2. Clean a plate with a sponge
+# 3. Clean a plate with a towel
+# 4. Clear cutting board
+# 5. Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils
+# 6. Get items from refrigerator/cabinets/drawers
+# 6. Get/replace items from refrigerator/cabinets/drawers
+# 7. Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils
+# 8. Open a jar of almond butter
+# 8. Open/close a jar of almond butter
+# 9. Peel a cucumber
+# 10. Peel a potato
+# 11. Pour water from a pitcher into a glass
+# 12. Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils
+# 13. Slice a cucumber
+# 14. Slice a potato
+# 15. Slice bread
+# 16. Spread almond butter on a bread slice
+# 17. Spread jelly on a bread slice
+# 18. Stack on table: 3 each large/small plates, bowls
+# 19. Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils
 
 emg_descriptions_to_labels = [
-    'Clear cutting board',
-    'Clean a plate with a towel',
-    'Pour water from a pitcher into a glass',
-    'Get/replace items from refrigerator/cabinets/drawers',
-    'Peel a cucumber',
-    'Slice bread',
-    'Clean a plate with a sponge',
-    'Open/close a jar of almond butter',
-    'Spread jelly on a bread slice',
-    'Clean a pan with a towel',
-    'Spread almond butter on a bread slice',
-    'Peel a potato',
-    'Slice a potato',
-    'Slice a cucumber',
-    'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
-    'Get items from refrigerator/cabinets/drawers',
-    'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
-    'Stack on table: 3 each large/small plates, bowls',
-    'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
-    'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
+    'Clean a pan with a sponge'
+    'Clean a pan with a towel'
+    'Clean a plate with a sponge'
+    'Clean a plate with a towel'
+    'Clear cutting board'
+    'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils'
+    'Get items from refrigerator/cabinets/drawers'
+    'Get/replace items from refrigerator/cabinets/drawers'
+    'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils'
+    'Open a jar of almond butter'
+    'Open/close a jar of almond butter'
+    'Peel a cucumber'
+    'Peel a potato'
+    'Pour water from a pitcher into a glass'
+    'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils'
+    'Slice a cucumber'
+    'Slice a potato'
+    'Slice bread'
+    'Spread almond butter on a bread slice'
+    'Spread jelly on a bread slice'
+    'Stack on table: 3 each large/small plates, bowls'
+    'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils'
 ]
 
 # class ActionNetRgbDataset(data.Dataset, ABC):

@@ -48,7 +48,7 @@ def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestam
     
     return left_chunks, right_chunks, left_reading_chunks, right_reading_chunks
 
-def increment_samples(file_path: str):
+def augment_dataset(file_path: str):
     data = pd.DataFrame(pd.read_pickle(file_path))
     new_data = []
 
@@ -85,6 +85,9 @@ def increment_samples(file_path: str):
     file_name, file_extension = os.path.splitext(file_path)
     new_data.to_pickle(f'{file_name}_augmented.pkl')
 
+    # TODO: in this phase, while augmentig, we need to also create the new ActionNet_test and ActionNet_train that contains the new splits of the new augmented dataset
+    # TODO: replace "Get items from refrigerator/cabinets/drawers" to "Get/replace items from refrigerator/cabinets/drawers" and "Open a jar of almond butter" to "Open/close a jar of almond butter" to obtain 20 labels
+
 # TODO: code to be used to prepare spilt train and test for rgb action net
 # def setup_pickle_rgb(file_path: str):
 #     data = pd.DataFrame(pd.read_pickle(file_path))
@@ -96,10 +99,10 @@ def increment_samples(file_path: str):
 #             'participant_id': 'P04',
 #             'video_id': 'P04_01',
 #             'narration': data.loc[i, 'description'],
-#             'start_timestamp': data.loc[i, 'start'],
-#             'stop_timestamp': data.loc[i, 'stop'],
-#             'start_frame': data.loc[i, 'start'] * 29.67,
-#             'stop_frame': data.loc[i, 'stop'] * 29.67,
+#             'start_timestamp': data.loc[i, 'start'], # TODO: remove t0
+#             'stop_timestamp': data.loc[i, 'stop'], # TODO: remove t0
+#             'start_frame': data.loc[i, 'start'] * 29.67, # TODO: remove t0
+#             'stop_frame': data.loc[i, 'stop'] * 29.67, # TODO: remove t0
 #             'verb': data.loc[i, 'description'],
 #             'verb_class': emg_descriptions_to_labels.index(data.loc[i, 'description']),
 #         }
@@ -208,16 +211,7 @@ def emg_adjust_features_index(file_path: str, index: int, *, cut_frequency: floa
     return transformed
 
 if __name__ == '__main__':
-    setup_pickle_rgb('emg/S04_1_augmented.pkl')
-            
+    prova()            
 
-# TODO: augmentation
-# TODO: read sepctogram, why?
-# TODO: divide each sample in 5 seconds segment
+# TODO: spectogram
 # TODO: saples are not balanced maybe
-# TODO: split train and test must be modified for emg
-
-# frame_rate = 108771/3385
-# 14m18s
-# 56m24s
-# frame_rate = 29.67
