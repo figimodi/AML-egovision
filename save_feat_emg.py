@@ -1,11 +1,10 @@
 import pandas as pd
-from scipy.signal import butter, filtfilt
+from scipy import signal
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import os
-
 
 def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestamps, right_readings):
     # Initialize empty lists to store the chunks and readings
@@ -116,102 +115,79 @@ def augment_dataset(file_path: str):
 #     file_name, file_extension = os.path.splitext(file_path)
 #     new_data.to_pickle(f'{file_name}_rgb.pkl')
 
+""" 
+
+1. Each channel is rectified by taking the absolute value
+2. Low-pass filter with cutoff frequency 5 Hz is applied 
+3. All 8 channels from an armband are then jointly normalized and shifted to the range [−1, 1] using the minimum and maximum values across all channels
+4. The absolute value of EMG data across all 8 forearm channels are summed together in each timestep to indicate overall forearm activation
+5. The streams are then smoothed to focus on low-frequency signals on time scales comparable to slicing motions (ACTUALLY REFERS TO THE PREVIOUS APPLIED FILTER ACCORDING TO SLACK)
+
+"""
+
+def map_to_range_linear(side):
+    mapped_side = np.zeros_like(side)
+    for col in range(side.shape[1]):
+        col_min, col_max = np.min(side[:, col]), np.max(side[:, col])
+        mapped_side[:, col] = (side[:, col] - col_min) / (col_max - col_min) * (1 - (-1)) + (-1)
+    return mapped_side
+
+def z_norm(side):
+    mean, std = np.mean(side, axis=0), np.std(side, axis=0)
+    to_return = map_to_range_linear((side - mean) / std)
+    
+    return to_return
 
 def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_order: int = 4):
     data = pd.DataFrame(pd.read_pickle(file_path))
-    to_read = ['myo_right', 'myo_left']
-
-    # Absolute value of the readings and application of low pass filter
-    for side in to_read:
-        for i, _ in data.iterrows():
-            if i != 0:
-                # Rectify channels
-                row = abs(data.loc[i, side + '_readings'])
-                times = data.loc[i, side + '_timestamps']
-                
-                # Low-pass filter 5 Hz
-                fs = times.size / (times[-1]-times[0])
-
-                # TODO: why is fs not 160? sometimes is more sometimes is less
-                # TODO: maybe onw just filter with fs=160 is enough
-
-                nyq = 0.5 * fs
-                wn = cut_frequency / nyq
-
-                b, a = butter(filter_order, wn, 'low', analog=False)
-                filtered = filtfilt(b, a, row.T, padlen=1).T
-
-                data.at[i, side + '_readings'] = filtered
-
-    # TODO: how to do normalization ? is L2 norm ok ? is the normalization per each action or on the whole dataset / we can also use batch norm layer
-    # TODO: use the statistics calculated on training to the testing phase
-    # Normalization with L2 norm
-    for side in to_read:
-        flat_side_data = [it for sub in data.loc[1:, side + '_readings'].apply(lambda x: x) for rd in sub for it in rd]
-        l2norm = np.linalg.norm(flat_side_data)
-        
-        for i, _ in data.iterrows():
-            if i != 0:
-                row = data.loc[i, side + '_readings']
-                normalized = row / l2norm
-                
-                data.at[i, side + '_readings'] = normalized
     
-    # Shift of the value range in [-1, 1]
-    for side in to_read:
-        flat_side_data = [it for sub in data.loc[1:, side + '_readings'].apply(lambda x: x) for rd in sub for it in rd]
-        mx = max(flat_side_data)
-        mn = min(flat_side_data)
+    tmp_lefts, tmp_rights = data.loc[1:, "myo_left_readings"], data.loc[1:, "myo_right_readings"]
+    length_periods_l, length_periods_r = [len(p) for p in tmp_lefts], [len(p) for p in tmp_rights]
+
+    fs = 160                    # sampling frequency
+    nyq = 0.5 * fs              # nyquist 
+    normalized_cutoff = cut_frequency / nyq    #normalized cutoff frequency
+
+    _, filt_coeffs = signal.butter(filter_order, normalized_cutoff, btype='low')
+    
+    NUM_CHANNELS = 8
+    
+    def apply_low_pass_filter(myo_side_readings):
+        myo_side_readings = np.array([channels_values for period in myo_side_readings for channels_values in period])
+        myo_side_readings = np.absolute(myo_side_readings)
+        filtered_data = np.zeros_like(myo_side_readings)
+        for i in range(NUM_CHANNELS):
+            filtered_data[:, i] = signal.filtfilt(filt_coeffs, [1], myo_side_readings[:, i])
         
-        for i, _ in data.iterrows():
-            if i != 0:
-                row = data.loc[i, side + '_readings']
-                # Normalize and shift in [-1, 1]
-                normalized = (row - mn) * 2 / (mx-mn) - 1
-                
-                # TODO: avoid summation because input of lstm is 100x16 instead of 100x1 (slack confirmed 5th february)
-                # Forearm activation
-                activation = normalized.sum(1)
-                
-                data.at[i, side + '_readings'] = activation
-        
+        return filtered_data
+
+    
+    filtered_data_left, filtered_data_right = apply_low_pass_filter(tmp_lefts), apply_low_pass_filter(tmp_rights)
+    filtered_data_left, filtered_data_right = z_norm(filtered_data_left), z_norm(filtered_data_right)
+    filtered_data_left, filtered_data_right = map_to_range_linear(filtered_data_left), map_to_range_linear(filtered_data_right)
+    
+    def put_back_into_dataframe(side_name, preprocessed, lengths):
+        start = 0
+        for i, period_length in enumerate(lengths):
+            aus = np.empty((0, 8))
+            
+            for l in range(period_length):
+                aus =np.vstack((aus, preprocessed[start + l]))
+            
+            summed_channels = np.sum(aus, axis=0)
+            
+            #SUM EACH CHANNEL FOR EACH PERIOD
+            data.at[i+1, side_name] = summed_channels.tolist()
+            
+            start += period_length
+    
+    put_back_into_dataframe("myo_left_readings", filtered_data_left, length_periods_l)
+    put_back_into_dataframe("myo_right_readings", filtered_data_right, length_periods_r)
+    
     return data
 
-def emg_adjust_features_index(file_path: str, index: int, *, cut_frequency: float = 5.0, filter_order: int = 4):
-    data = pd.DataFrame(pd.read_pickle(file_path))
-    to_read = ['myo_right', 'myo_left']
-
-    transformed = {}
-
-    for side in to_read:
-        # Rectify channels
-        row = abs(data.loc[index, side + '_readings'])
-        times = data.loc[index, side + '_timestamps']
-        
-        # Low-pass filter 5 Hz
-        fs = times.size / (times[-1]-times[0])
-
-        nyq = 0.5 * fs
-        wn = cut_frequency / nyq
-        
-        b, a = butter(filter_order, wn, 'low', analog=False)
-        filtered = filtfilt(b, a, row.T).T
-        
-        # Normalize in [-1, 1]
-        scaler = MinMaxScaler(feature_range=(-1, 1))
-        filtered = scaler.fit_transform(filtered)
-        
-        # Forearm activation
-        activation = filtered.sum(1)
-        
-        transformed[side + '_readings'] = activation
-        
-    transformed['description'] = data.loc[index, 'description']
-    
-    return transformed
-
 if __name__ == '__main__':
-    prova()            
+    pass
 
 # TODO: spectogram
 # TODO: saples are not balanced maybe
