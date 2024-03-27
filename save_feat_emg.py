@@ -161,7 +161,6 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
         
         return filtered_data
 
-    
     filtered_data_left, filtered_data_right = apply_low_pass_filter(tmp_lefts), apply_low_pass_filter(tmp_rights)
     filtered_data_left, filtered_data_right = z_norm(filtered_data_left), z_norm(filtered_data_right)
     filtered_data_left, filtered_data_right = map_to_range_linear(filtered_data_left), map_to_range_linear(filtered_data_right)
@@ -172,12 +171,10 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
             aus = np.empty((0, 8))
             
             for l in range(period_length):
-                aus =np.vstack((aus, preprocessed[start + l]))
-            
-            summed_channels = np.sum(aus, axis=0)
+                aus = np.vstack((aus, preprocessed[start + l]))
             
             #SUM EACH CHANNEL FOR EACH PERIOD
-            data.at[i+1, side_name] = summed_channels.tolist()
+            data.at[i+1, side_name] = aus
             
             start += period_length
     
