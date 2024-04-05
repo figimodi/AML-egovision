@@ -266,8 +266,8 @@ def z_norm(side):
 
 def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_order: int = 4):
     data = pd.DataFrame(pd.read_pickle(file_path))
-    
-    tmp_lefts, tmp_rights = data.loc[1:, "myo_left_readings"], data.loc[1:, "myo_right_readings"]
+
+    tmp_lefts, tmp_rights = data["myo_left_readings"], data["myo_right_readings"]
     length_periods_l, length_periods_r = [len(p) for p in tmp_lefts], [len(p) for p in tmp_rights]
 
     fs = 160                    # sampling frequency
@@ -277,7 +277,7 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
     _, filt_coeffs = signal.butter(filter_order, normalized_cutoff, btype='low')
     
     NUM_CHANNELS = 8
-    
+
     def apply_low_pass_filter(myo_side_readings):
         myo_side_readings = np.array([channels_values for period in myo_side_readings for channels_values in period])
         myo_side_readings = np.absolute(myo_side_readings)
@@ -300,7 +300,7 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
                 aus = np.vstack((aus, preprocessed[start + l]))
             
             #SUM EACH CHANNEL FOR EACH PERIOD
-            data.at[i+1, side_name] = aus
+            data.at[i, side_name] = aus
             
             start += period_length
     
@@ -309,9 +309,19 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
     
     return data
 
+def pre_process_emg():
+    emg_folder = 'emg/'
+
+    for filename in os.listdir(emg_folder):
+        if os.path.isfile(os.path.join(emg_folder, filename)) and 'augmented' in filename.lower() and 'rgb' not in filename.lower():
+            data = emg_adjust_features(os.path.join(emg_folder, filename))
+            data.to_pickle(f'{emg_folder}/{filename}_preproc.pkl')
+
 if __name__ == '__main__':
     # augment_dataset()
-    emg2rgb()
+    # emg2rgb()
+    pre_process_emg()
+
 
 # TODO: spectogram
 # TODO: saples are not balanced maybe
