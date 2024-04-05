@@ -68,6 +68,7 @@ class ActionNetEmgDataset(data.Dataset, ABC):
             
             file = row['file']
             if file not in readings:
+                # TODO: remove this line since pre proc already done
                 readings[file] = emg_adjust_features(os.path.join(data_path, row['file']))
 
             for k in temp_dict.keys():

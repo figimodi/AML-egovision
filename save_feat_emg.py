@@ -212,6 +212,8 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
     new_test_rows.to_pickle(f'action-net/ActionNet_test_augmented.pkl')
     new_train_rows.to_pickle(f'action-net/ActionNet_train_augmented.pkl')
 
+    # TODO: create three columns: 'file_emg', 'file_rgb', 'file_specto' with the corresponding path to pkl files with the samples
+
 def emg2rgb():
     emg_folder = 'emg/'
     partitions = os.listdir(emg_folder)

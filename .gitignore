@@ -192,3 +192,4 @@ Experiment_logs/
 TEST_RESULTS/
 colab_runner.ipynb
 .vscode/
+emg/
