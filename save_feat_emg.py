@@ -3,8 +3,13 @@ from scipy import signal
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import os
+
+import torch
+import torchaudio
+import torchaudio.functional as F
+import torchaudio.transforms as T
+import librosa
 
 emg_descriptions_to_labels = [
     'Clean a pan with a sponge',
@@ -309,9 +314,58 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
     
     return data
 
+def final_save_spectrogram(specgram, name, title=None, ylabel="freq_bin"):
+    fig, axs = plt.subplots(len(specgram), 1, figsize=(16, 8))
+
+    axs[0].set_title(title or "Spectrogram (db)")
+
+    for i, spec in enumerate(specgram):
+        im = axs[i].imshow(librosa.power_to_db(specgram[i]), origin="lower", aspect="auto")
+        axs[i].get_xaxis().set_visible(False)
+        axs[i].get_yaxis().set_visible(False)
+
+    axs[i].set_xlabel("Frame number")
+    axs[i].get_xaxis().set_visible(True)
+    plt.savefig(f"../spectograms/{name}")
+
+def save_spectograms():
+    n_fft = 32
+    win_length = None
+    hop_length = 4
+
+    spectrogram = T.Spectrogram(
+        n_fft=n_fft,
+        win_length=win_length,
+        hop_length=hop_length,
+        center=True,
+        pad_mode="reflect",
+        power=2.0,
+        normalized=True
+    )
+
+    def compute_spectrogram(signal):
+        freq_signal = [spectrogram(signal[:, i]) for i in range(8)]
+        return freq_signal
+        
+    files_to_read = [s for s in os.listdir('emg/') if "augmented" in s and "rgb" not in s]
+    
+    print(files_to_read)
+    
+    return
+    
+    for f in files_to_read:
+        emg_annotations = pd.read_pickle(f"emg/{f}")
+        for sample_no in range(len(emg_annotations)):
+            signal = torch.from_numpy(emg_annotations.iloc[sample_no].myo_left_readings).float()
+            title = emg_annotations.iloc[sample_no].description
+            file_name_prefix = f.split("_augmented")[0]
+            name = f"{file_name_prefix}_{sample_no}"
+            freq_signal = compute_spectrogram(signal)
+            final_save_spectrogram(freq_signal, name, title=title)
+
 if __name__ == '__main__':
     # augment_dataset()
-    emg2rgb()
+    # emg2rgb()
+    save_spectograms()
 
-# TODO: spectogram
 # TODO: saples are not balanced maybe
