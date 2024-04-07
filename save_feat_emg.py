@@ -272,7 +272,7 @@ def z_norm(side):
 def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_order: int = 4):
     data = pd.DataFrame(pd.read_pickle(file_path))
     
-    tmp_lefts, tmp_rights = data.loc[1:, "myo_left_readings"], data.loc[1:, "myo_right_readings"]
+    tmp_lefts, tmp_rights = data.loc[:, "myo_left_readings"], data.loc[:, "myo_right_readings"]
     length_periods_l, length_periods_r = [len(p) for p in tmp_lefts], [len(p) for p in tmp_rights]
 
     fs = 160                    # sampling frequency
@@ -304,7 +304,7 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
             for l in range(period_length):
                 aus = np.vstack((aus, preprocessed[start + l]))
             
-            #SUM EACH CHANNEL FOR EACH PERIOD
+
             data.at[i+1, side_name] = aus
             
             start += period_length
