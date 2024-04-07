@@ -12,29 +12,6 @@ from utils.logger import logger
 
 import numpy as np
 
-# 0. Clean a pan with a sponge
-# 1. Clean a pan with a towel
-# 2. Clean a plate with a sponge
-# 3. Clean a plate with a towel
-# 4. Clear cutting board
-# 5. Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils
-# 6. Get items from refrigerator/cabinets/drawers
-# 6. Get/replace items from refrigerator/cabinets/drawers
-# 7. Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils
-# 8. Open a jar of almond butter
-# 8. Open/close a jar of almond butter
-# 9. Peel a cucumber
-# 10. Peel a potato
-# 11. Pour water from a pitcher into a glass
-# 12. Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils
-# 13. Slice a cucumber
-# 14. Slice a potato
-# 15. Slice bread
-# 16. Spread almond butter on a bread slice
-# 17. Spread jelly on a bread slice
-# 18. Stack on table: 3 each large/small plates, bowls
-# 19. Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils
-
 emg_descriptions_to_labels = [
     'Clean a pan with a sponge',
     'Clean a pan with a towel',
@@ -74,31 +51,31 @@ emg_descriptions_to_labels = [
 
 class ActionNetEmgDataset(data.Dataset, ABC):
     def __init__(self, data_path, index_file_split) -> None:
-        file_name = f'./action-net/ActionNet_{index_file_split}.pkl'
+        file_name = f'./action-net/ActionNet_{index_file_split}_augmented.pkl'
         self.indices = pd.DataFrame(pd.read_pickle(file_name))
         
         temp_dict = {
             'description': [],
             'myo_left_readings': [],
             'myo_right_readings': [],
-            # '': [],
-            # '': [],
         }
         
         readings = {}
         
         for i, row in self.indices.iterrows():
-            if i == 0:
+            if row['description'] == 'calibration':
                 continue
             
             file = row['file']
             if file not in readings:
+                # TODO: remove this line since pre proc already done
                 readings[file] = emg_adjust_features(os.path.join(data_path, row['file']))
-            
+
             for k in temp_dict.keys():
                 temp_dict[k].append(readings[file][k][row['index']])
 
         self.data = pd.DataFrame(temp_dict)
+        print(self.data)
     
     def __getitem__(self, index):
         element = self.data.loc[index, 'myo_left_readings':'myo_right_readings']
@@ -108,7 +85,7 @@ class ActionNetEmgDataset(data.Dataset, ABC):
     
     def __len__(self):
         return len(self.data)
-    
+        
 
 class EpicKitchensDataset(data.Dataset, ABC):
     def __init__(self, split, modalities, mode, dataset_conf, num_frames_per_clip, num_clips, dense_sampling,

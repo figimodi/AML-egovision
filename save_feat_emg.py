@@ -217,6 +217,8 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
     new_test_rows.to_pickle(f'action-net/ActionNet_test_augmented.pkl')
     new_train_rows.to_pickle(f'action-net/ActionNet_train_augmented.pkl')
 
+    # TODO: create three columns: 'file_emg', 'file_rgb', 'file_specto' with the corresponding path to pkl files with the samples
+
 def emg2rgb():
     emg_folder = 'emg/'
     partitions = os.listdir(emg_folder)
@@ -271,8 +273,8 @@ def z_norm(side):
 
 def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_order: int = 4):
     data = pd.DataFrame(pd.read_pickle(file_path))
-    
-    tmp_lefts, tmp_rights = data.loc[:, "myo_left_readings"], data.loc[:, "myo_right_readings"]
+
+    tmp_lefts, tmp_rights = data["myo_left_readings"], data["myo_right_readings"]
     length_periods_l, length_periods_r = [len(p) for p in tmp_lefts], [len(p) for p in tmp_rights]
 
     fs = 160                    # sampling frequency
@@ -282,7 +284,7 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
     _, filt_coeffs = signal.butter(filter_order, normalized_cutoff, btype='low')
     
     NUM_CHANNELS = 8
-    
+
     def apply_low_pass_filter(myo_side_readings):
         myo_side_readings = np.array([channels_values for period in myo_side_readings for channels_values in period])
         myo_side_readings = np.absolute(myo_side_readings)
@@ -304,8 +306,8 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
             for l in range(period_length):
                 aus = np.vstack((aus, preprocessed[start + l]))
             
-
-            data.at[i+1, side_name] = aus
+            #SUM EACH CHANNEL FOR EACH PERIOD
+            data.at[i, side_name] = aus
             
             start += period_length
     
@@ -351,8 +353,6 @@ def save_spectograms():
     
     print(files_to_read)
     
-    return
-    
     for f in files_to_read:
         emg_annotations = pd.read_pickle(f"emg/{f}")
         for sample_no in range(len(emg_annotations)):
@@ -362,10 +362,19 @@ def save_spectograms():
             name = f"{file_name_prefix}_{sample_no}"
             freq_signal = compute_spectrogram(signal)
             final_save_spectrogram(freq_signal, name, title=title)
+def pre_process_emg():
+    emg_folder = 'emg/'
+
+    for filename in os.listdir(emg_folder):
+        if os.path.isfile(os.path.join(emg_folder, filename)) and 'augmented' in filename.lower() and 'rgb' not in filename.lower():
+            data = emg_adjust_features(os.path.join(emg_folder, filename))
+            data.to_pickle(f'{emg_folder}/{filename}_preproc.pkl')
 
 if __name__ == '__main__':
     # augment_dataset()
     # emg2rgb()
+    #pre_process_emg()
     save_spectograms()
+
 
 # TODO: saples are not balanced maybe
