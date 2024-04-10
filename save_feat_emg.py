@@ -220,6 +220,42 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
 
     # TODO: create three columns: 'file_emg', 'file_rgb', 'file_specto' with the corresponding path to pkl files with the samples
 
+def update_split_files():
+    test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test_augmented.pkl'))
+    train = pd.DataFrame(pd.read_pickle('action-net/ActionNet_train_augmented.pkl'))
+
+    if 'file' in train.columns:
+        train = train.rename(columns={'file':'emg_file'})
+
+    if 'file' in test.columns:
+        test = test.rename(columns={'file':'emg_file'})
+
+    for i, row in train.iterrows():
+        filename = row['emg_file']
+        if 'preproc' not in filename:
+            file_name, file_extension = os.path.splitext(filename)
+            train.at[i, 'emg_file'] = os.path.join(filename, '_preproc.pkl')
+
+    for i, row in test.iterrows():
+        filename = row['emg_file']
+        if 'preproc' not in filename:
+            file_name, file_extension = os.path.splitext(filename)
+            test.at[i, 'emg_file'] = os.path.join(filename, '_preproc.pkl')
+
+    if 'rgb_file' not in train.columns:
+        train.insert(2, 'rgb_file', [train.loc[i, 'emg_file'].replace('_preproc', '_rgb') for i in range(len(train))], allow_duplicates=True)
+
+    if 'rgb_file' not in test.columns:
+        test.insert(2, 'rgb_file', [test.loc[i, 'emg_file'].replace('_preproc', '_rgb') for i in range(len(test))], allow_duplicates=True)
+
+    if 'spectograms_file' not in train.columns:
+        train.insert(2, 'spectograms_file', [train.loc[i, 'emg_file'].replace('_preproc', '_spectograms') for i in range(len(train))], allow_duplicates=True)
+
+    if 'spectograms_file' not in test.columns:
+        test.insert(2, 'spectograms_file', [test.loc[i, 'emg_file'].replace('_preproc', '_spectograms') for i in range(len(test))], allow_duplicates=True)
+
+    return
+
 def emg2rgb():
     emg_folder = 'emg/'
     partitions = os.listdir(emg_folder)
