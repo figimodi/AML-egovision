@@ -419,12 +419,29 @@ def pre_process_emg():
             data = emg_adjust_features(os.path.join(emg_folder, filename))
             data.to_pickle(f'{emg_folder}/{filename.split(".pkl")[0]}_preproc.pkl')
 
+def associationPerAgent():
+    all_generated_spect = pickle.load(open('emg\spectFileName_label.pickle', 'rb'))
+    
+    all_agents = {}
+    
+    for k, v in all_generated_spect.items():
+        agent = f"{k.split('_')[0]}_{k.split('_')[1]}"
+        if agent not in all_agents:
+            all_agents[agent]={}
+        all_agents[agent][f"{k}.png"]=v
+        
+    for agent in all_agents.keys():
+        cur_dict = all_agents.get(agent)
+        df = pd.DataFrame(cur_dict.items(), columns=['file', 'description'])
+        df.to_pickle(f"emg/{agent}_augmented_specto.pkl")        
+    
+
 if __name__ == '__main__':
     # augment_dataset()
     # emg2rgb()
     # pre_process_emg()
     # save_spectograms()
-    update_split_files()
+    associationPerAgent()
 
 
 # TODO: samples are not balanced maybe
