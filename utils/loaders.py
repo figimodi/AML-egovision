@@ -4,6 +4,7 @@ import random
 from save_feat_emg import emg_adjust_features
 import pandas as pd
 from .epic_record import EpicVideoRecord
+from .action_record import ActionRecord
 import torch.utils.data as data
 from PIL import Image
 import os
@@ -35,47 +36,47 @@ emg_descriptions_to_labels = [
     'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
 ]
 
-# class ActionNetRgbDataset(data.Dataset, ABC):
-#     def __init__(self, data_path, index_file_split) -> None:
-#         # TODO: to implement
-#         return
-    
-#     def __getitem__(self, index):
-#         # TODO: to implement
-          # TODO: when loading frame remove t0, which is equal to true_start_video*29,67
-#         return 
-
-#     def __len__(self):
-#         return len(self.data)
-
 
 class ActionNetEmgDataset(data.Dataset, ABC):
-    def __init__(self, data_path, index_file_split) -> None:
-        file_name = f'./action-net/ActionNet_{index_file_split}_augmented.pkl'
-        self.indices = pd.DataFrame(pd.read_pickle(file_name))
+    def __init__(self, data_path, mode, modalities) -> None:
+        file_name = f'./action-net/ActionNet_{mode}_augmented.pkl'
+        self.split_file = pd.DataFrame(pd.read_pickle(file_name))
+        self.modalities = modalities
+        self.model_features = None
+        self.sample_list = [ActionRecord(tup) for tup in split_file.iterrows()]
+
+        for m in self.modalities:
+            # load features for each modality
+            model_features = pd.DataFrame(pd.read_pickle(os.path.join("saved_features/epic_kitchen",
+                                                                        self.dataset_conf[m].features_name + "_" +
+                                                                        pickle_name))['features'])[["uid", "features_" + m]]
+            if self.model_features is None:
+                self.model_features = model_features
+            else:
+                self.model_features = pd.merge(self.model_features, model_features, left_index=True, right_index=True)
+
+        # temp_dict = {
+        #     'description': [],
+        #     'myo_left_readings': [],
+        #     'myo_right_readings': [],
+        # }
         
-        temp_dict = {
-            'description': [],
-            'myo_left_readings': [],
-            'myo_right_readings': [],
-        }
+        # readings = {}
         
-        readings = {}
-        
-        for i, row in self.indices.iterrows():
-            if row['description'] == 'calibration':
-                continue
+        # for i, row in self.indices.iterrows():
+        #     if row['description'] == 'calibration':
+        #         continue
             
-            file = row['file']
-            if file not in readings:
-                # TODO: remove this line since pre proc already done
-                readings[file] = emg_adjust_features(os.path.join(data_path, row['file']))
+        #     file = row['file']
+        #     if file not in readings:
+        #         # TODO: remove this line since pre proc already done
+        #         readings[file] = emg_adjust_features(os.path.join(data_path, row['file']))
 
-            for k in temp_dict.keys():
-                temp_dict[k].append(readings[file][k][row['index']])
+        #     for k in temp_dict.keys():
+        #         temp_dict[k].append(readings[file][k][row['index']])
 
-        self.data = pd.DataFrame(temp_dict)
-        print(self.data)
+        # self.data = pd.DataFrame(temp_dict)
+        # print(self.data)
     
     def __getitem__(self, index):
         element = self.data.loc[index, 'myo_left_readings':'myo_right_readings']

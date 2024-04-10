@@ -249,10 +249,10 @@ def update_split_files():
         test.insert(2, 'rgb_file', [test.loc[i, 'emg_file'].replace('_preproc', '_rgb') for i in range(len(test))], allow_duplicates=True)
 
     if 'spectograms_file' not in train.columns:
-        train.insert(2, 'spectograms_file', [train.loc[i, 'emg_file'].replace('_preproc', '_spectograms') for i in range(len(train))], allow_duplicates=True)
+        train.insert(2, 'spectograms_file', [train.loc[i, 'emg_file'].replace('_preproc', '_specto') for i in range(len(train))], allow_duplicates=True)
 
     if 'spectograms_file' not in test.columns:
-        test.insert(2, 'spectograms_file', [test.loc[i, 'emg_file'].replace('_preproc', '_spectograms') for i in range(len(test))], allow_duplicates=True)
+        test.insert(2, 'spectograms_file', [test.loc[i, 'emg_file'].replace('_preproc', '_specto') for i in range(len(test))], allow_duplicates=True)
 
     return
 
