@@ -4,6 +4,7 @@ from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pickle
 
 import torch
 import torchaudio
@@ -329,8 +330,11 @@ def final_save_spectrogram(specgram, name, title=None, ylabel="freq_bin"):
     axs[i].set_xlabel("Frame number")
     axs[i].get_xaxis().set_visible(True)
     plt.savefig(f"../spectograms/{name}")
+    plt.close()
 
 def save_spectograms():
+    spectFileName_label_dict = {}
+    
     n_fft = 32
     win_length = None
     hop_length = 4
@@ -349,32 +353,41 @@ def save_spectograms():
         freq_signal = [spectrogram(signal[:, i]) for i in range(8)]
         return freq_signal
         
-    files_to_read = [s for s in os.listdir('emg/') if "augmented" in s and "rgb" not in s]
+    files_to_read = [s for s in os.listdir('emg/') if "preproc" in s]
     
-    print(files_to_read)
-    
-    for f in files_to_read:
+    for i, f in enumerate(files_to_read):
+        print(f"{i+1}/{len(files_to_read)}: {f}")
         emg_annotations = pd.read_pickle(f"emg/{f}")
         for sample_no in range(len(emg_annotations)):
             signal = torch.from_numpy(emg_annotations.iloc[sample_no].myo_left_readings).float()
-            title = emg_annotations.iloc[sample_no].description
+            label = emg_annotations.iloc[sample_no].description
             file_name_prefix = f.split("_augmented")[0]
             name = f"{file_name_prefix}_{sample_no}"
-            freq_signal = compute_spectrogram(signal)
-            final_save_spectrogram(freq_signal, name, title=title)
+            freq_signal = None
+            try:
+                freq_signal = compute_spectrogram(signal)
+            except RuntimeError:
+                print(f"Error: {name}")
+            else:
+                final_save_spectrogram(freq_signal, name, title=label)
+                spectFileName_label_dict[name] = label
+    
+    with open('emg/spectFileName_label.pickle', 'wb') as handle:
+        pickle.dump(spectFileName_label_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
 def pre_process_emg():
     emg_folder = 'emg/'
 
     for filename in os.listdir(emg_folder):
         if os.path.isfile(os.path.join(emg_folder, filename)) and 'augmented' in filename.lower() and 'rgb' not in filename.lower():
             data = emg_adjust_features(os.path.join(emg_folder, filename))
-            data.to_pickle(f'{emg_folder}/{filename}_preproc.pkl')
+            data.to_pickle(f'{emg_folder}/{filename.split(".pkl")[0]}_preproc.pkl')
 
 if __name__ == '__main__':
     # augment_dataset()
     # emg2rgb()
-    #pre_process_emg()
+    # pre_process_emg()
     save_spectograms()
 
 
-# TODO: saples are not balanced maybe
+# TODO: samples are not balanced maybe
