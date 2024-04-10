@@ -79,6 +79,8 @@ class ActionNetEmgDataset(data.Dataset, ABC):
         # print(self.data)
     
     def __getitem__(self, index):
+        record = self.video_list[index]
+        sample = self.model_features[self]
         element = self.data.loc[index, 'myo_left_readings':'myo_right_readings']
         label = emg_descriptions_to_labels.index(self.data.loc[index, 'description'])
         

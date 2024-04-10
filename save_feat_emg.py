@@ -172,6 +172,7 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
     old_test_rows = test[test['file'] == old_file_name]
     new_test_rows = []
     new_data = []
+
     for i, _ in old_test_rows.iterrows():
         old_index = old_test_rows.loc[i, 'index']
         for new_index in mapping_new_index[old_index]:
@@ -188,13 +189,14 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
             }
             new_data.append(new_row)
 
-    new_test_rows = test.drop(test[test['file'] == old_file_name].index)
+    new_test_rows = test[test['file'] != old_file_name]
     new_test_rows = pd.concat([new_test_rows, pd.DataFrame(new_data)])
 
     # TRAIN: creating the new rows of the new file split that refer to the augmented dataset
     old_train_rows = train[train['file'] == old_file_name]
     new_train_rows = []
     new_data = []
+
     for i, _ in old_train_rows.iterrows():
         old_index = old_train_rows.loc[i, 'index']
         for new_index in mapping_new_index[old_index]:
@@ -211,7 +213,7 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
             }
             new_data.append(new_row)
 
-    new_train_rows = train.drop(train[train['file'] == old_file_name].index)
+    new_train_rows = train[train['file'] != old_file_name]
     new_train_rows = pd.concat([new_train_rows, pd.DataFrame(new_data)])
 
     # Save the DataFrame to a pickle file
@@ -441,7 +443,7 @@ if __name__ == '__main__':
     # emg2rgb()
     # pre_process_emg()
     # save_spectograms()
-    associationPerAgent()
+    # associationPerAgent()
 
 
 # TODO: samples are not balanced maybe

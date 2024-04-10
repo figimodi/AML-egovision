@@ -1,44 +1,48 @@
-# Index(['old_index', 'description', 'start', 'stop', 'myo_left_timestamps',
-#        'myo_left_readings', 'myo_right_timestamps', 'myo_right_readings'],
-#       dtype='object')
-# >>> f.columns
-# Index(['uid', 'participant_id', 'video_id', 'narration', 'start_timestamp',
-#        'stop_timestamp', 'start_frame', 'stop_frame', 'verb', 'verb_class'],
-#       dtype='object')
+emg_descriptions_to_labels = [
+    'Clean a pan with a sponge',
+    'Clean a pan with a towel',
+    'Clean a plate with a sponge',
+    'Clean a plate with a towel',
+    'Clear cutting board',
+    'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
+    'Get/replace items from refrigerator/cabinets/drawers',
+    'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
+    'Open/close a jar of almond butter',
+    'Peel a cucumber',
+    'Peel a potato',
+    'Pour water from a pitcher into a glass',
+    'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
+    'Slice a cucumber',
+    'Slice a potato',
+    'Slice bread',
+    'Spread almond butter on a bread slice',
+    'Spread jelly on a bread slice',
+    'Stack on table: 3 each large/small plates, bowls',
+    'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
+]
 
 class ActionRecord():
     def __init__(self, tup):
         self._index = tup[0]
         self._sample = tup[1]
+        # tup[1] = ['index', 'emg_file', 'rgb_file', 'spectograms_file', 'description', 'labels']
 
     @property
     def index(self):
         return self._sample['index']
-
-    @property
-    def start_frame(self):
-        return self._sample['start_frame']
-
-    @property
-    def end_frame(self):
-        return self._sample['stop_frame']
-
-    @property
-    def start_timestamp(self):
-        return self._sample['start']
-
-    @property
-    def stop_timestamp(self):
-        return self._sample['stop']
     
     @property
-    def num_frames(self):
-        return {'RGB': self.end_frame - self.start_frame,
-                'EMG': len(min(self._sample['myo_left_timestamps'], self._sample['myo_right_timestamps'])),
-                'Specto': 1}
+    def emg_file(self):
+        return self._sample['emg_file']
+
+    @property
+    def rgb_file(self):
+        return self._sample['rgb_file']
+
+    @property
+    def spectograms_file(self):
+        return self._sample['spectograms_file']
 
     @property
     def label(self):
-        if 'verb_class' not in self._sample.keys().tolist():
-            raise NotImplementedError
-        return self._sample['verb_class']
+        return emg_descriptions_to_labels.index(self._sample['description'])
