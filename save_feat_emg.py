@@ -299,7 +299,7 @@ def merge_pickles():
         if os.path.isfile(os.path.join(emg_folder, filename)):
             agent = filename[:5]
             if not agents[agent]:
-                agents[agent] = dict{'emg_file': 'none', 'rgb_file': 'none', 'spectograms_file': 'none'}
+                agents[agent] = {'emg_file': 'none', 'rgb_file': 'none', 'spectograms_file': 'none'}
             if 'preproc' in filename.lower():
                 agents[agent]['emg_file'] = filename
             elif 'rgb' in filename.lower():
@@ -380,7 +380,7 @@ def merge_pickles():
         # modify split files, so they will point to the new files
         def map_new_file(value: str):
             file_name, file_extension = os.path.splitext(value)
-            return file_name, file_extension = os.path.join(file_name, '_actionnet.pkl')
+            return os.path.join(file_name, '_actionnet.pkl')
             
         test = pd.DataFrame(pd.read_pickle(os.path.join(action_folder, 'ActionNet_test_augmented.pkl')))
         train = pd.DataFrame(pd.read_pickle(os.path.join(action_folder, 'ActionNet_train_augmented.pkl')))

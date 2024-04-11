@@ -38,51 +38,180 @@ emg_descriptions_to_labels = [
 
 
 class ActionNetEmgDataset(data.Dataset, ABC):
-    def __init__(self, data_path, mode, modalities) -> None:
+    def __init__(self, data_path, mode, modalities, extract_features=False) -> None:
         file_name = f'./action-net/ActionNet_{mode}_augmented.pkl'
         self.split_file = pd.DataFrame(pd.read_pickle(file_name))
         self.modalities = modalities
-        self.sample_list = [ActionRecord(tup) for tup in split_file.iterrows()]
+        self.extract_features = extract_features
         self.model_features = None
+        self.samples_dict = {}
+        self.video_list = []
 
-        for m in self.modalities:
-            # load features for each modality
-            model_features = pd.DataFrame(pd.read_pickle(os.path.join("saved_features/epic_kitchen",
-                                                                        self.dataset_conf[m].features_name + "_" +
-                                                                        pickle_name))['features'])[["uid", "features_" + m]]
-            if self.model_features is None:
-                self.model_features = model_features
-            else:
-                self.model_features = pd.merge(self.model_features, model_features, left_index=True, right_index=True)
+        # load all the samples
+        for filename in os.listdir('emg/'):
+            if os.path.isfile(os.path.join('/emg', filename)) and 'actionnet' in filename:
+                samples = pd.DataFrame(pd.read_pickle(os.path.join('/emg', filename)))
+                agent = filename[:5]
+                self.samples_dict[agent] = samples
 
-        # temp_dict = {
-        #     'description': [],
-        #     'myo_left_readings': [],
-        #     'myo_right_readings': [],
-        # }
-        
-        # readings = {}
-        
-        # for i, row in self.indices.iterrows():
-        #     if row['description'] == 'calibration':
-        #         continue
+        if self.extract_features:
+            # take the split file and load into video_list all the train/validation samples (by reading the split file)
+            for i, _ in self.split_file.iterrows():
+                index = self.split_file.loc[i, 'index']
+                filename = self.split_file.loc[i, 'file']
+                agent = filename[:5]
+                video = self.samples_dict[agent].loc[index, ['start_frame', 'stop_frame', 'description', 'label']]
+                self.video_list.append(ActionRecord(video))
+        else:
+            # load the already extracted features to be the RGB samples
+            self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(f'saved_features/action_net/dense_16_D1_{mode}')['features'])['features_RGB']
             
-        #     file = row['file']
-        #     if file not in readings:
-        #         # TODO: remove this line since pre proc already done
-        #         readings[file] = emg_adjust_features(os.path.join(data_path, row['file']))
+            # load into EMG mode the samples of the corresponding split
+            # load into specto mode the samples of the corresponding split
+            for i, _ in self.split_file.iterrows():
+                index = self.split_file.loc[i, 'index']
+                filename = self.split_file.loc[i, 'file']
+                agent = filename[:5]
+                self.model_features['EMG'] = self.model_features.append(self.samples_dict[agent].loc[index, [
+                                                                                                    'start', 
+                                                                                                    'stop', 
+                                                                                                    'myo_left_timestamps', 
+                                                                                                    'myo_left_readings', 
+                                                                                                    'myo_right_timestamps', 
+                                                                                                    'myo_right_readings', 
+                                                                                                    'description', 
+                                                                                                    'label']], ignore_index=True)
+                self.model_features['specto'] = self.model_features.append(self.samples_dict[agent].loc[index, [
+                                                                                                    'file', 
+                                                                                                    'description', 
+                                                                                                    'label']], ignore_index=True)
+                                                                               
+    def _get_train_indices(self, record: ActionRecord, modality='RGB'):
+        start_frame = 0
+        end_frame = record.num_frames[modality]
+        
+        frames_per_clip = self.num_frames_per_clip[modality]
+        
+        selected_frames = []
+        
+        for _ in range(self.num_clips):
+            # If the number of frames of the clip is not sufficient
+            # the remaining ones are chosen randomly from the sequence
+            clip_frames = []
+            if end_frame < frames_per_clip:
+                clip_frames = list(range(start_frame, end_frame))
+                
+                while len(clip_frames) < frames_per_clip:
+                    clip_frames.append(random.randint(start_frame, end_frame))
+                
+                clip_frames.sort()
+            
+            else:
+                if self.dense_sampling.get(modality, False):
+                    step = self.stride + 1
+                    # frames_per_side = (self.num_frames_per_clip[modality]-1)//2
+                    dead_select_zone = frames_per_clip * (step)
+                    
+                    clip_start_frame = random.randint(start_frame, max(start_frame, end_frame-dead_select_zone))
+                    
+                    clip_frames = list(
+                        range(
+                            clip_start_frame, 
+                            min(end_frame, clip_start_frame+dead_select_zone),
+                            step
+                            )
+                        )
+                    
+                    if len(clip_frames) < frames_per_clip:
+                        available_frames = list(i for i in range(start_frame, end_frame+1) if i not in clip_frames)
+                        
+                        while len(clip_frames) < frames_per_clip:
+                            sel = random.choice(available_frames)
+                            clip_frames.append(sel)
+                            available_frames.remove(sel)
+                        
+                        clip_frames.sort()
+                else:
+                    higher_bound = end_frame//frames_per_clip
+                    step = max(1, random.randint(higher_bound//2, higher_bound))
+                    
+                    clip_start_frame = random.randint(start_frame, end_frame-step*(frames_per_clip-1))
+                    clip_end_frame = clip_start_frame + step * frames_per_clip
+                    clip_frames = list(range(clip_start_frame, clip_end_frame, step))
+            
+            selected_frames.append(clip_frames)
+        
+        to_return = []
+        selected_frames.sort(key=lambda i: i[0])
+        for clip in selected_frames:
+            to_return.extend(clip)
+        
+        return to_return
 
-        #     for k in temp_dict.keys():
-        #         temp_dict[k].append(readings[file][k][row['index']])
+    def _get_val_indices(self, record: ActionRecord, modality='RGB'):
+        start_frame = 0
+        end_frame = record.num_frames[modality]
+        
+        frames_per_clip = self.num_frames_per_clip[modality]
+        
+        selected_frames = []
+        
+        for _ in range(self.num_clips):
+            # If the number of frames of the clip is not sufficient
+            # the remaining ones are chosen randomly from the sequence
+            clip_frames = []
+            if end_frame < frames_per_clip:
+                clip_frames = list(range(start_frame, end_frame))
+                
+                while len(clip_frames) < frames_per_clip:
+                    clip_frames.append(random.randint(start_frame, end_frame))
+                
+                clip_frames.sort()
+            
+            else:
+                if self.dense_sampling.get(modality, False):
+                    step = self.stride + 1
+                    # frames_per_side = (self.num_frames_per_clip[modality]-1)//2
+                    dead_select_zone = frames_per_clip * (step)
+                    
+                    clip_start_frame = random.randint(start_frame, max(start_frame, end_frame-dead_select_zone))
+                    
+                    clip_frames = list(
+                        range(
+                            clip_start_frame, 
+                            min(end_frame, clip_start_frame+dead_select_zone),
+                            step
+                            )
+                        )
+                    
+                    if len(clip_frames) < frames_per_clip:
+                        available_frames = list(i for i in range(start_frame, end_frame+1) if i not in clip_frames)
+                        
+                        while len(clip_frames) < frames_per_clip:
+                            sel = random.choice(available_frames)
+                            clip_frames.append(sel)
+                            available_frames.remove(sel)
+                        
+                        clip_frames.sort()
+                else:
+                    higher_bound = end_frame//frames_per_clip
+                    step = max(1, random.randint(higher_bound//2, higher_bound))
+                    
+                    clip_start_frame = random.randint(start_frame, end_frame-step*(frames_per_clip-1))
+                    clip_end_frame = clip_start_frame + step * frames_per_clip
+                    clip_frames = list(range(clip_start_frame, clip_end_frame, step))
+            
+            selected_frames.append(clip_frames)
+        
+        to_return = []
+        selected_frames.sort(key=lambda i: i[0])
+        for clip in selected_frames:
+            to_return.extend(clip)
+        
+        return to_return
 
-        # self.data = pd.DataFrame(temp_dict)
-        # print(self.data)
-    
     def __getitem__(self, index):
-        record = self.video_list[index]
-        sample = self.model_features[record.index()]
-        element = self.data.loc[index, 'myo_left_readings':'myo_right_readings']
-        label = emg_descriptions_to_labels.index(self.data.loc[index, 'description'])
+        # TODO: implement
         
         return element, label
     
@@ -147,7 +276,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
             self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
 
-    def _get_train_indices(self, record, modality='RGB'):
+    def _get_train_indices(self, record: EpicVideoRecord, modality='RGB'):
         start_frame = 0
         end_frame = record.num_frames[modality]
         
@@ -209,7 +338,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
         
         return to_return
 
-    def _get_val_indices(self, record: EpicVideoRecord, modality):
+    def _get_val_indices(self, record: EpicVideoRecord, modality: 'RGB'):
         start_frame = 0
         end_frame = record.num_frames[modality]
         
