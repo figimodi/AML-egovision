@@ -222,41 +222,41 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
 
     # TODO: create three columns: 'file_emg', 'file_rgb', 'file_specto' with the corresponding path to pkl files with the samples
 
-def update_split_files():
-    test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test_augmented.pkl'))
-    train = pd.DataFrame(pd.read_pickle('action-net/ActionNet_train_augmented.pkl'))
+# def update_split_files():
+#     test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test_augmented.pkl'))
+#     train = pd.DataFrame(pd.read_pickle('action-net/ActionNet_train_augmented.pkl'))
 
-    if 'file' in train.columns:
-        train = train.rename(columns={'file':'emg_file'})
+#     if 'file' in train.columns:
+#         train = train.rename(columns={'file':'emg_file'})
 
-    if 'file' in test.columns:
-        test = test.rename(columns={'file':'emg_file'})
+#     if 'file' in test.columns:
+#         test = test.rename(columns={'file':'emg_file'})
 
-    for i, row in train.iterrows():
-        filename = row['emg_file']
-        if 'preproc' not in filename:
-            file_name, file_extension = os.path.splitext(filename)
-            train.at[i, 'emg_file'] = os.path.join(filename, '_preproc.pkl')
+#     for i, row in train.iterrows():
+#         filename = row['emg_file']
+#         if 'preproc' not in filename:
+#             file_name, file_extension = os.path.splitext(filename)
+#             train.at[i, 'emg_file'] = os.path.join(filename, '_preproc.pkl')
 
-    for i, row in test.iterrows():
-        filename = row['emg_file']
-        if 'preproc' not in filename:
-            file_name, file_extension = os.path.splitext(filename)
-            test.at[i, 'emg_file'] = os.path.join(filename, '_preproc.pkl')
+#     for i, row in test.iterrows():
+#         filename = row['emg_file']
+#         if 'preproc' not in filename:
+#             file_name, file_extension = os.path.splitext(filename)
+#             test.at[i, 'emg_file'] = os.path.join(filename, '_preproc.pkl')
 
-    if 'rgb_file' not in train.columns:
-        train.insert(2, 'rgb_file', [train.loc[i, 'emg_file'].replace('_preproc', '_rgb') for i in range(len(train))], allow_duplicates=True)
+#     if 'rgb_file' not in train.columns:
+#         train.insert(2, 'rgb_file', [train.loc[i, 'emg_file'].replace('_preproc', '_rgb') for i in range(len(train))], allow_duplicates=True)
 
-    if 'rgb_file' not in test.columns:
-        test.insert(2, 'rgb_file', [test.loc[i, 'emg_file'].replace('_preproc', '_rgb') for i in range(len(test))], allow_duplicates=True)
+#     if 'rgb_file' not in test.columns:
+#         test.insert(2, 'rgb_file', [test.loc[i, 'emg_file'].replace('_preproc', '_rgb') for i in range(len(test))], allow_duplicates=True)
 
-    if 'spectograms_file' not in train.columns:
-        train.insert(2, 'spectograms_file', [train.loc[i, 'emg_file'].replace('_preproc', '_specto') for i in range(len(train))], allow_duplicates=True)
+#     if 'spectograms_file' not in train.columns:
+#         train.insert(2, 'spectograms_file', [train.loc[i, 'emg_file'].replace('_preproc', '_specto') for i in range(len(train))], allow_duplicates=True)
 
-    if 'spectograms_file' not in test.columns:
-        test.insert(2, 'spectograms_file', [test.loc[i, 'emg_file'].replace('_preproc', '_specto') for i in range(len(test))], allow_duplicates=True)
+#     if 'spectograms_file' not in test.columns:
+#         test.insert(2, 'spectograms_file', [test.loc[i, 'emg_file'].replace('_preproc', '_specto') for i in range(len(test))], allow_duplicates=True)
 
-    return
+#     return
 
 def emg2rgb():
     emg_folder = 'emg/'
@@ -293,6 +293,7 @@ def emg2rgb():
 def merge_pickles():
     agents = {} 
     emg_folder = 'emg/'
+    action_folder = 'action-net/'
 
     for filename in os.listdir(emg_folder):
         if os.path.isfile(os.path.join(emg_folder, filename)):
@@ -375,6 +376,19 @@ def merge_pickles():
         final = pd.merge(final, specto, left_index=True, right_index=True)
 
         final.to_pickle(f'{emg_folder}/{agent}_actionnet.pkl')
+
+        # modify split files, so they will point to the new files
+        def map_new_file(value: str):
+            file_name, file_extension = os.path.splitext(value)
+            return file_name, file_extension = os.path.join(file_name, '_actionnet.pkl')
+            
+        test = pd.DataFrame(pd.read_pickle(os.path.join(action_folder, 'ActionNet_test_augmented.pkl')))
+        train = pd.DataFrame(pd.read_pickle(os.path.join(action_folder, 'ActionNet_train_augmented.pkl')))
+        test['file'] = test['file'].map(map_new_file)
+        train['file'] = train['file'].map(map_new_file)
+        test.to_pickle(f'{action_folder}/ActionNet_test_augmented.pkl')
+        train.to_pickle(f'{action_folder}/ActionNet_train_augmented.pkl')
+
 
         # TODO: uncomment if the above works then remove intermediate files (all containing augmented)
         # for filename in os.listdir(emg_folder):
@@ -535,3 +549,4 @@ if __name__ == '__main__':
     # pre_process_emg()
     # save_spectograms()
     # associationPerAgent()
+    update_split_files()
