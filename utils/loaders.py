@@ -42,8 +42,8 @@ class ActionNetEmgDataset(data.Dataset, ABC):
         file_name = f'./action-net/ActionNet_{mode}_augmented.pkl'
         self.split_file = pd.DataFrame(pd.read_pickle(file_name))
         self.modalities = modalities
-        self.model_features = None
         self.sample_list = [ActionRecord(tup) for tup in split_file.iterrows()]
+        self.model_features = None
 
         for m in self.modalities:
             # load features for each modality
@@ -80,7 +80,7 @@ class ActionNetEmgDataset(data.Dataset, ABC):
     
     def __getitem__(self, index):
         record = self.video_list[index]
-        sample = self.model_features[self]
+        sample = self.model_features[record.index()]
         element = self.data.loc[index, 'myo_left_readings':'myo_right_readings']
         label = emg_descriptions_to_labels.index(self.data.loc[index, 'description'])
         

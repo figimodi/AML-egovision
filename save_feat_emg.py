@@ -290,6 +290,97 @@ def emg2rgb():
             new_data.to_pickle(f'{emg_folder}/{file_name}_rgb.pkl')
             print(f'{filename} succesfully produced the rgb counterpart')
 
+def merge_pickles():
+    agents = {} 
+    emg_folder = 'emg/'
+
+    for filename in os.listdir(emg_folder):
+        if os.path.isfile(os.path.join(emg_folder, filename)):
+            agent = filename[:5]
+            if not agents[agent]:
+                agents[agent] = dict{'emg_file': 'none', 'rgb_file': 'none', 'spectograms_file': 'none'}
+            if 'preproc' in filename.lower():
+                agents[agent]['emg_file'] = filename
+            elif 'rgb' in filename.lower():
+                agents[agent]['rgb_file'] = filename
+            elif 'specto' in filename.lower():
+                agents[agent]['spectograms_file'] = filename
+            elif 'augmented' in filename.lower():
+                os.remove(os.path.join(emg_folder, filename))
+
+    # format of the intermediate files
+    # >>> emg.columns
+    # Index(['old_index', 'description', 'start', 'stop', 'myo_left_timestamps',
+    #     'myo_left_readings', 'myo_right_timestamps', 'myo_right_readings'],
+    #     dtype='object')
+    # >>> rgb.columns
+    # Index(['uid', 'participant_id', 'video_id', 'narration', 'start_timestamp',
+    #     'stop_timestamp', 'start_frame', 'stop_frame', 'verb', 'verb_class'],
+    #     dtype='object')
+    # >>> specto.columns
+    # Index(['file', 'description'], dtype='object')
+
+    for agent, files in agents.items():
+        emg = pd.DataFrame(pd.read_pickle(os.path.join(emg_folder, files['emg'])))
+        rgb = pd.DataFrame(pd.read_pickle(os.path.join(emg_folder, files['rgb'])))
+        specto = pd.DataFrame(pd.read_pickle(os.path.join(emg_folder, files['specto'])))
+
+        # remove t0 from timestamps and frame nubers T0
+        # >>> min(emg['start'])
+        # 1654639217.5249205 ====> inizio video = frame_t0=49093145568
+        # 1654639888.5249205 ====> calibration start = 11m11s
+        # 1654640077,704248 ====> prima azione = 14m20s
+        def remove_t0_time(value: float):
+            if type(value)==list:
+                return [t - 1654639217.5249205 for t in value]
+            else:
+                return value - 1654639217.5249205
+
+        def remove_t0_frame(value: int):
+            return value - 49093145568
+
+        emg['start'] = emg['start'].map(remove_t0_time)
+        emg['stop'] = emg['stop'].map(remove_to_time)
+        emg['myo_left_timestamps'] = emg['myo_left_timestamps'].map(remove_to_time)
+        emg['myo_right_timestamps'] = emg['myo_right_timestamps'].map(remove_to_time)
+        rgb['start_frame'] = rgb['start_frame'].map(remove_t0_frame)
+        rgb['stop_frame'] = rgb['stop_frame'].map(remove_t0_frame)
+
+        # keep only necessary columns
+        emg = emg.loc[:, [
+            'start',
+            'stop',
+            'myo_left_timestamps', 
+            'myo_left_readings', 
+            'myo_right_timestamps', 
+            'myo_right_readings', 
+            'description', 
+            ]]
+        rgb = rgb.loc[:, [
+            'start_frame', 
+            'stop_frame',
+            'verb_class'
+            ]]
+        specto = specto.loc[:, [
+            'file',
+            ]]
+
+        # rename columns
+        emg = emg.rename(columns={'start': 'start_timestamp', 'stop': 'stop_timestamp'})
+        rgb = rgb.rename(columns={'verb_class': 'label'})
+        specto = specto.rename(columns={'file': 'specto_file'})
+
+        # join columns
+        final = pd.merge(emg, rgb, left_index=True, right_index=True)
+        final = pd.merge(final, specto, left_index=True, right_index=True)
+
+        final.to_pickle(f'{emg_folder}/{agent}_actionnet.pkl')
+
+        # TODO: uncomment if the above works then remove intermediate files (all containing augmented)
+        # for filename in os.listdir(emg_folder):
+        #     if os.path.isfile(os.path.join(emg_folder, filename)) and 'augmented' in filename.lower():
+        #         os.remove(os.path.join(emg_folder, filename))
+
 """ 
 1. Each channel is rectified by taking the absolute value
 2. Low-pass filter with cutoff frequency 5 Hz is applied 
@@ -444,6 +535,3 @@ if __name__ == '__main__':
     # pre_process_emg()
     # save_spectograms()
     # associationPerAgent()
-
-
-# TODO: samples are not balanced maybe
