@@ -22,27 +22,27 @@ emg_descriptions_to_labels = [
 ]
 
 class ActionRecord():
-    def __init__(self, tup):
-        self._index = tup[0]
-        self._sample = tup[1]
-        # tup[1] = ['index', 'emg_file', 'rgb_file', 'spectograms_file', 'description', 'labels']
-
-    @property
-    def index(self):
-        return self._sample['index']
+    def __init__(self, video):
+        self._index = video[0]
+        self._sample = video[1]
+        # video[1] = ['start_frame', 'stop_frame', 'description', 'verb_class']
     
     @property
-    def emg_file(self):
-        return self._sample['emg_file']
+    def start_frame(self):
+        return self._sample['start_frame']
 
     @property
-    def rgb_file(self):
-        return self._sample['rgb_file']
+    def stop_frame(self):
+        return self._sample['stop_frame']
 
     @property
-    def spectograms_file(self):
-        return self._sample['spectograms_file']
+    def description(self):
+        return self._sample['description']
 
     @property
     def label(self):
-        return emg_descriptions_to_labels.index(self._sample['description'])
+        return self._sample['label']
+
+    @property
+    def num_frames(self):
+        return {'RGB': self.stop_frame - self.start_frame}
