@@ -38,7 +38,7 @@ emg_descriptions_to_labels = [
 
 
 class ActionNetEmgDataset(data.Dataset, ABC):
-    def __init__(self, data_path, mode, modalities, extract_features=False) -> None:
+    def __init__(self, data_path, mode, modalities, extract_features=False, sampling='dense', n_frames=16) -> None:
         file_name = f'./action-net/ActionNet_{mode}_augmented.pkl'
         self.split_file = pd.DataFrame(pd.read_pickle(file_name))
         self.modalities = modalities
@@ -64,7 +64,7 @@ class ActionNetEmgDataset(data.Dataset, ABC):
                 self.video_list.append(ActionRecord(video))
         else:
             # load the already extracted features to be the RGB samples
-            self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(f'saved_features/action_net/dense_16_D1_{mode}')['features'])['features_RGB']
+            self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(f'saved_features/action_net/{sampling}_{n_frames}_D1_{mode}')['features'])['features_RGB']
             
             # load into EMG mode the samples of the corresponding split
             # load into specto mode the samples of the corresponding split
@@ -211,10 +211,65 @@ class ActionNetEmgDataset(data.Dataset, ABC):
         return to_return
 
     def __getitem__(self, index):
-        # TODO: implement
-        
-        return element, label
+        if self.extract_features:
+            frames = {}
+            segment_indices = {}
+            record = self.video_list[index]
+            if self.mode == "train":
+                # here the training indexes are obtained with some randomization
+                segment_indices[modality] = self._get_train_indices(record, modality)
+            else:
+                # here the testing indexes are obtained with no randomization, i.e., centered
+                segment_indices[modality] = self._get_val_indices(record, modality)
+            
+            img, label = self.get('RGB', record, segment_indices[m])
+            frames[m] = img
+
+            return frames, label
+        else:
+            sample = {}
+            for modality in self.modalities:
+                sample[modality] = self.model_features[modality].loc[index, :]
+            return sample, record.label
     
+    def get(self, modality, record, indices):
+        images = list()
+        for frame_index in indices:
+            p = int(frame_index)
+            # here the frame is loaded in memory
+            frame = self._load_data(modality, record, p)
+            images.extend(frame)
+        # finally, all the transformations are applied
+        process_data = self.transform[modality](images)
+        return process_data, record.label
+
+    def _load_data(self, modality, record, idx):
+        data_path = self.dataset_conf[modality].data_path
+        tmpl = self.dataset_conf[modality].tmpl
+
+        if modality == 'RGB' or modality == 'RGBDiff':
+            # here the offset for the starting index of the sample is added
+
+            idx_untrimmed = record.start_frame + idx
+            try:
+                img = Image.open(os.path.join(data_path, record.untrimmed_video_name, tmpl.format(idx_untrimmed))) \
+                    .convert('RGB')
+            except FileNotFoundError:
+                print("Img not found")
+                print(data_path, record.untrimmed_video_name, tmpl.format(idx_untrimmed), idx, record.start_frame)
+                max_idx_video = int(sorted(glob.glob(os.path.join(data_path,
+                                                                  record.untrimmed_video_name,
+                                                                  "img_*")))[-1].split("_")[-1].split(".")[0])
+                if idx_untrimmed > max_idx_video:
+                    img = Image.open(os.path.join(data_path, record.untrimmed_video_name, tmpl.format(max_idx_video))) \
+                        .convert('RGB')
+                else:
+                    raise FileNotFoundError
+            return [img]
+        
+        else:
+            raise NotImplementedError("Modality not implemented")
+
     def __len__(self):
         return len(self.data)
         
