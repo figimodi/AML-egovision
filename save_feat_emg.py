@@ -371,7 +371,7 @@ def final_save_spectrogram(specgram, name, title=None, ylabel="freq_bin"):
     plt.close()
 
 def save_spectograms():
-    spectFileName_label_dict = {}
+    spectFileName_label_dict = []
     
     n_fft = 32
     win_length = None
@@ -393,6 +393,9 @@ def save_spectograms():
         
     files_to_read = [s for s in os.listdir('emg/') if "preproc" in s]
     
+    failed_spectrograms = []
+    backup_spectrograms = {}
+
     for i, f in enumerate(files_to_read):
         print(f"{i+1}/{len(files_to_read)}: {f}")
         emg_annotations = pd.read_pickle(f"emg/{f}")
@@ -400,16 +403,31 @@ def save_spectograms():
             signal = torch.from_numpy(emg_annotations.iloc[sample_no].myo_left_readings).float()
             label = emg_annotations.iloc[sample_no].description
             file_name_prefix = f.split("_augmented")[0]
-            name = f"{file_name_prefix}_{sample_no}"
-            freq_signal = None
+            name = f"{file_name_prefix}_{sample_no}.png"
             try:
                 freq_signal = compute_spectrogram(signal)
             except RuntimeError:
                 print(f"Error: {name}")
+                failed_spectrograms.append((name, label, len(spectFileName_label_dict)))
+                new_row_data = ['XXX', label, len(spectFileName_label_dict)]
+                spectFileName_label_dict.append(new_row_data)
             else:
                 final_save_spectrogram(freq_signal, name, title=label)
-                spectFileName_label_dict[name] = label
+                new_row_data = [name, label, len(spectFileName_label_dict)]
+                spectFileName_label_dict.append(new_row_data)
+                if label not in backup_spectrograms:
+                    backup_spectrograms[label] = name
+                    
+    for f in failed_spectrograms:
+        print(spectFileName_label_dict[f[2]])
+        
+        assert(spectFileName_label_dict[f[2]][0]=='XXX')
+        assert(spectFileName_label_dict[f[2]][1]==f[1])
+        spectFileName_label_dict[f[2]][0] = backup_spectrograms[label]
     
+    spectFileName_label_dict = pd.DataFrame(spectFileName_label_dict, columns=['file','description', 'indice'])
+    spectFileName_label_dict = spectFileName_label_dict.drop(columns=['indice'], axis=1)
+
     with open('emg/spectFileName_label.pickle', 'wb') as handle:
         pickle.dump(spectFileName_label_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
