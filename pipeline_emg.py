@@ -35,6 +35,11 @@ emg_descriptions_to_labels = [
     'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
 ]
 
+emg_descriptions_conversion_dict = {
+            'Get items from refrigerator/cabinets/drawers'         :       'Get/replace items from refrigerator/cabinets/drawers',
+            'Open a jar of almond butter'                          :       'Open/close a jar of almond butter'
+        }
+
 def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestamps, right_readings):
     # Initialize empty lists to store the chunks and readings
     left_chunks = [[]]
@@ -114,11 +119,8 @@ def augment_partition(file_path: str):
 
         for c in range(n_chunks):
             # handle old descriptions
-            # TODO: move replacement at run time
-            if data.loc[i, 'description'] == 'Get items from refrigerator/cabinets/drawers':
-                data.at[i, 'description'] = 'Get/replace items from refrigerator/cabinets/drawers'
-            if data.loc[i, 'description'] == 'Open a jar of almond butter':
-                data.at[i, 'description'] = 'Open/close a jar of almond butter'
+            if data.loc[i, 'description'] in emg_descriptions_conversion_dict:
+                data.at[i, 'description'] = emg_descriptions_conversion_dict[data.loc[i, 'description']]
             
             new_row = {
                 'old_index': i,

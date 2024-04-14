@@ -12,13 +12,13 @@ save:
 
 dataset:
   annotations_path: emg
-  shift: S1-S1
+  shift: AN1_augmented-AN1_augmented
   workers: 4
   stride: 2
   resolution: 224
   RGB:
     data_path: ???
-    tmpl: "frame_{:010d}.jpg" # TODO: change into frame_{:010d}.jpg for action net
+    tmpl: "frame_{:010d}.jpg"
   Event:
     rgb4e: 6
 
