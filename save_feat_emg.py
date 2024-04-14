@@ -517,7 +517,7 @@ def save_spectograms():
                 new_row_data = ['XXX', label, len(spectFileName_label_dict)]
                 spectFileName_label_dict.append(new_row_data)
             else:
-                final_save_spectrogram(freq_signal, name, title=label)
+                # final_save_spectrogram(freq_signal, name, title=label)
                 new_row_data = [name, label, len(spectFileName_label_dict)]
                 spectFileName_label_dict.append(new_row_data)
                 if label not in backup_spectrograms:
@@ -549,22 +549,28 @@ def associationPerAgent():
     
     all_agents = {}
     
-    for k, v in all_generated_spect.items():
-        agent = f"{k.split('_')[0]}_{k.split('_')[1]}"
+    print(len(all_generated_spect))
+
+    for i, row in all_generated_spect.iterrows():
+        agent = f"{row['file'].split('_')[0]}_{row['file'].split('_')[1]}"
         if agent not in all_agents:
             all_agents[agent]={}
-        all_agents[agent][f"{k}.png"]=v
+        all_agents[agent][row['file']] = row['description']
         
+    tot_elem = 0
+
     for agent in all_agents.keys():
         cur_dict = all_agents.get(agent)
         df = pd.DataFrame(cur_dict.items(), columns=['file', 'description'])
+        tot_elem = tot_elem + len(df)
         df.to_pickle(f"emg/{agent}_augmented_specto.pkl")        
     
+    print(tot_elem)
 
 if __name__ == '__main__':
     # augment_dataset()
     # emg2rgb()
     # pre_process_emg()
     # save_spectograms()
-    # associationPerAgent()
-    update_split_files()
+    associationPerAgent()
+    # update_split_files()
