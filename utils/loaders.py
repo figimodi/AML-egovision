@@ -1,7 +1,6 @@
 import glob
 from abc import ABC
 import random
-from save_feat_emg import emg_adjust_features
 import pandas as pd
 from .epic_record import EpicVideoRecord
 from .action_record import ActionRecord
@@ -37,8 +36,8 @@ emg_descriptions_to_labels = [
 ]
 
 
-class ActionNetEmgDataset(data.Dataset, ABC):
-    def __init__(self, data_path, mode, modalities, extract_features=False, sampling='dense', n_frames=16) -> None:
+class ActionSenseDataset(data.Dataset, ABC):
+    def __init__(self, mode, modalities, extract_features=False, sampling='dense', n_frames=16) -> None:
         file_name = f'./action-net/ActionNet_{mode}_augmented.pkl'
         self.split_file = pd.DataFrame(pd.read_pickle(file_name))
         self.modalities = modalities
@@ -60,10 +59,13 @@ class ActionNetEmgDataset(data.Dataset, ABC):
                 index = self.split_file.loc[i, 'index']
                 filename = self.split_file.loc[i, 'file']
                 agent = filename[:5]
+                print(index)
+                print(filename)
                 video = self.samples_dict[agent].loc[index, ['start_frame', 'stop_frame', 'description', 'label']]
                 self.video_list.append(ActionRecord(video))
         else:
             # load the already extracted features to be the RGB samples
+            # TODO: load features for all agents (instead of D1 use S00_2, S01_1, ...)
             self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(f'saved_features/action_net/{sampling}_{n_frames}_D1_{mode}')['features'])['features_RGB']
             
             # load into EMG mode the samples of the corresponding split

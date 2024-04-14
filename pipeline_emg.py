@@ -381,7 +381,7 @@ def merge_pickles():
         # modify split files, so they will point to the new files
         def map_new_file(value: str):
             file_name, file_extension = os.path.splitext(value)
-            return os.path.join(file_name, '_actionnet.pkl')
+            return file_name[:5] + '_actionnet.pkl'
             
         test = pd.DataFrame(pd.read_pickle(os.path.join(action_folder, 'ActionNet_test_augmented.pkl')))
         train = pd.DataFrame(pd.read_pickle(os.path.join(action_folder, 'ActionNet_train_augmented.pkl')))
@@ -393,7 +393,7 @@ def merge_pickles():
         for filename in os.listdir(emg_folder):
             if os.path.isfile(os.path.join(emg_folder, filename)) and 'augmented' in filename.lower():
                 os.remove(os.path.join(emg_folder, filename))
-
+            
 """ 
 1. Each channel is rectified by taking the absolute value
 2. Low-pass filter with cutoff frequency 5 Hz is applied 
