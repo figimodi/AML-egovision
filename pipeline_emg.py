@@ -81,23 +81,84 @@ def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestam
     
     return left_chunks, right_chunks, left_reading_chunks, right_reading_chunks
 
-def augment_dataset():
-    emg_folder = 'emg/'
-    action_folder = 'action-net/'
+def create_split_augmented(old_file_path: str, new_file_path: str):
+    data = pd.DataFrame(pd.read_pickle(new_file_path))
+    if os.path.isfile('action-net/ActionNet_test_augmented.pkl'):
+        test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test_augmented.pkl'))
+    else:
+        test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test.pkl'))
 
-    for filename in os.listdir(action_folder):
-        if os.path.isfile(os.path.join(action_folder, filename)):
-            if 'augmented' in filename.lower():
-                os.remove(os.path.join(action_folder, filename))
+    if os.path.isfile('action-net/ActionNet_train_augmented.pkl'):
+        train = pd.DataFrame(pd.read_pickle('action-net/ActionNet_train_augmented.pkl'))
+    else:
+        train = pd.DataFrame(pd.read_pickle('action-net/ActionNet_train.pkl'))
 
-    for filename in os.listdir(emg_folder):
-        if os.path.isfile(os.path.join(emg_folder, filename)):
-            if 'augmented' in filename.lower():
-                os.remove(os.path.join(emg_folder, filename))
+    old_file_name = old_file_path.split('/')[1]
+    new_file_name = new_file_path.split('/')[1]
 
-    partitions = os.listdir(emg_folder)
-    for p in partitions:
-        augment_partition(os.path.join(emg_folder, p))
+    # mapping each old index to the list of new (augmented) indices
+    mapping_new_index = {}
+    for i, _ in data.iterrows():
+        old_index = data.loc[i, 'old_index']
+        new_index = i
+        
+        if old_index in mapping_new_index:
+            mapping_new_index[old_index].append(new_index)
+        else:
+            mapping_new_index[old_index] = [new_index]
+
+    # TEST: creating the new rows of the new file split that refer to the augmented dataset
+    old_test_rows = test[test['file'] == old_file_name]
+    new_test_rows = []
+    new_data = []
+
+    for i, row in old_test_rows.iterrows():
+        old_index = row['index']
+        for new_index in mapping_new_index[old_index]:
+            # handle old descriptions
+            if row['description'] in emg_descriptions_conversion_dict.keys():
+                new_description = emg_descriptions_conversion_dict[row['description']]
+                old_test_rows.at[i, 'description'] = new_description
+
+            new_row = {
+                'index': int(new_index),
+                'file': new_file_name,
+                'description': row['description'] if row['description'] not in emg_descriptions_conversion_dict.keys() else emg_descriptions_conversion_dict[row['description']],
+                'labels': row['labels']
+            }
+            new_data.append(new_row)
+
+    new_test_rows = test[test['file'] != old_file_name]
+    new_test_rows = pd.concat([new_test_rows, pd.DataFrame(new_data)])
+
+    # TRAIN: creating the new rows of the new file split that refer to the augmented dataset
+    old_train_rows = train[train['file'] == old_file_name]
+    new_train_rows = []
+    new_data = []
+
+    for i, row in old_train_rows.iterrows():
+        old_index = row['index']
+        for new_index in mapping_new_index[old_index]:
+            # handle old descriptions
+            new_row = {
+                'index': int(new_index),
+                'file': new_file_name,
+                'description': row['description'] if row['description'] not in emg_descriptions_conversion_dict.keys() else emg_descriptions_conversion_dict[row['description']],
+                'labels': row['labels']
+            }
+            new_data.append(new_row)
+
+    new_train_rows = train[train['file'] != old_file_name]
+    new_train_rows = pd.concat([new_train_rows, pd.DataFrame(new_data)])
+
+    new_test_rows.set_index('index', inplace=True, drop=False)
+    new_train_rows.set_index('index', inplace=True, drop=False)
+
+    # Save the DataFrame to a pickle file
+    new_test_rows.to_pickle(f'action-net/ActionNet_test_augmented.pkl')
+    new_train_rows.to_pickle(f'action-net/ActionNet_train_augmented.pkl')
+
+    # TODO: create three columns: 'file_emg', 'file_rgb', 'file_specto' with the corresponding path to pkl files with the samples
 
 def augment_partition(file_path: str):
     data = pd.DataFrame(pd.read_pickle(file_path))
@@ -145,85 +206,23 @@ def augment_partition(file_path: str):
     create_split_augmented(file_path, f'{file_name}_augmented.pkl')
     print(f'{file_path} was correctly augmented')
 
-def create_split_augmented(old_file_path: str, new_file_path: str):
-    data = pd.DataFrame(pd.read_pickle(new_file_path))
-    if os.path.isfile('action-net/ActionNet_test_augmented.pkl'):
-        test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test_augmented.pkl'))
-    else:
-        test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test.pkl'))
+def augment_dataset():
+    emg_folder = 'emg/'
+    action_folder = 'action-net/'
 
-    if os.path.isfile('action-net/ActionNet_train_augmented.pkl'):
-        train = pd.DataFrame(pd.read_pickle('action-net/ActionNet_train_augmented.pkl'))
-    else:
-        train = pd.DataFrame(pd.read_pickle('action-net/ActionNet_train.pkl'))
+    for filename in os.listdir(action_folder):
+        if os.path.isfile(os.path.join(action_folder, filename)):
+            if 'augmented' in filename.lower():
+                os.remove(os.path.join(action_folder, filename))
 
-    old_file_name = old_file_path.split('/')[1]
-    new_file_name = new_file_path.split('/')[1]
+    for filename in os.listdir(emg_folder):
+        if os.path.isfile(os.path.join(emg_folder, filename)):
+            if 'augmented' in filename.lower():
+                os.remove(os.path.join(emg_folder, filename))
 
-    # mapping each old index to the list of new (augmented) indices
-    mapping_new_index = {}
-    for i, _ in data.iterrows():
-        old_index = data.loc[i, 'old_index']
-        new_index = i
-        
-        if old_index in mapping_new_index:
-            mapping_new_index[old_index].append(new_index)
-        else:
-            mapping_new_index[old_index] = [new_index]
-
-    # TEST: creating the new rows of the new file split that refer to the augmented dataset
-    old_test_rows = test[test['file'] == old_file_name]
-    new_test_rows = []
-    new_data = []
-
-    for i, _ in old_test_rows.iterrows():
-        old_index = old_test_rows.loc[i, 'index']
-        for new_index in mapping_new_index[old_index]:
-            # handle old descriptions
-            if old_test_rows.loc[i, 'description'] == 'Get items from refrigerator/cabinets/drawers':
-                old_test_rows.at[i, 'description'] = 'Get/replace items from refrigerator/cabinets/drawers'
-            if old_test_rows.loc[i, 'description'] == 'Open a jar of almond butter':
-                old_test_rows.at[i, 'description'] = 'Open/close a jar of almond butter'
-            new_row = {
-                'index': int(new_index),
-                'file': new_file_name,
-                'description': old_test_rows.loc[i, 'description'],
-                'labels': old_test_rows.loc[i, 'labels']
-            }
-            new_data.append(new_row)
-
-    new_test_rows = test[test['file'] != old_file_name]
-    new_test_rows = pd.concat([new_test_rows, pd.DataFrame(new_data)])
-
-    # TRAIN: creating the new rows of the new file split that refer to the augmented dataset
-    old_train_rows = train[train['file'] == old_file_name]
-    new_train_rows = []
-    new_data = []
-
-    for i, _ in old_train_rows.iterrows():
-        old_index = old_train_rows.loc[i, 'index']
-        for new_index in mapping_new_index[old_index]:
-            # handle old descriptions
-            if old_train_rows.loc[i, 'description'] == 'Get items from refrigerator/cabinets/drawers':
-                old_train_rows.at[i, 'description'] = 'Get/replace items from refrigerator/cabinets/drawers'
-            if old_train_rows.loc[i, 'description'] == 'Open a jar of almond butter':
-                old_train_rows.at[i, 'description'] = 'Open/close a jar of almond butter'
-            new_row = {
-                'index': int(new_index),
-                'file': new_file_name,
-                'description': old_train_rows.loc[i, 'description'],
-                'labels': old_train_rows.loc[i, 'labels']
-            }
-            new_data.append(new_row)
-
-    new_train_rows = train[train['file'] != old_file_name]
-    new_train_rows = pd.concat([new_train_rows, pd.DataFrame(new_data)])
-
-    # Save the DataFrame to a pickle file
-    new_test_rows.to_pickle(f'action-net/ActionNet_test_augmented.pkl')
-    new_train_rows.to_pickle(f'action-net/ActionNet_train_augmented.pkl')
-
-    # TODO: create three columns: 'file_emg', 'file_rgb', 'file_specto' with the corresponding path to pkl files with the samples
+    partitions = os.listdir(emg_folder)
+    for p in partitions:
+        augment_partition(os.path.join(emg_folder, p))
 
 # def update_split_files():
 #     test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test_augmented.pkl'))
@@ -290,7 +289,7 @@ def emg2rgb():
 
             # Save the DataFrame to a pickle file
             file_name, file_extension = os.path.splitext(filename)
-            new_data.to_pickle(f'{emg_folder}/{file_name}_rgb.pkl')
+            new_data.to_pickle(f'{emg_folder}/{file_name.split("_emg")[0]}_rgb.pkl')
             print(f'{filename} succesfully produced the rgb counterpart')
 
 def merge_pickles():
@@ -303,26 +302,14 @@ def merge_pickles():
             agent = filename[:5]
             if agent not in agents.keys():
                 agents[agent] = {'emg_file': 'none', 'rgb_file': 'none', 'spectograms_file': 'none'}
-            if 'preproc' in filename.lower():
+            if 'emg' in filename.lower():
                 agents[agent]['emg_file'] = filename
             elif 'rgb' in filename.lower():
                 agents[agent]['rgb_file'] = filename
             elif 'specto' in filename.lower():
                 agents[agent]['spectograms_file'] = filename
-            elif 'augmented' in filename.lower():
-                os.remove(os.path.join(emg_folder, filename))
-
-    # format of the intermediate files
-    # >>> emg.columns
-    # Index(['old_index', 'description', 'start', 'stop', 'myo_left_timestamps',
-    #     'myo_left_readings', 'myo_right_timestamps', 'myo_right_readings'],
-    #     dtype='object')
-    # >>> rgb.columns
-    # Index(['uid', 'participant_id', 'video_id', 'narration', 'start_timestamp',
-    #     'stop_timestamp', 'start_frame', 'stop_frame', 'verb', 'verb_class'],
-    #     dtype='object')
-    # >>> specto.columns
-    # Index(['file', 'description'], dtype='object')
+            else:
+                continue
 
     for agent, files in agents.items():
         emg = pd.DataFrame(pd.read_pickle(os.path.join(emg_folder, files['emg_file'])))
@@ -378,12 +365,12 @@ def merge_pickles():
         final = pd.merge(emg, rgb, left_index=True, right_index=True)
         final = pd.merge(final, specto, left_index=True, right_index=True)
 
-        final.to_pickle(f'{emg_folder}/{agent}_actionnet.pkl')
+        final.to_pickle(f'{emg_folder}/{agent}_augmented.pkl')
 
         # modify split files, so they will point to the new files
         def map_new_file(value: str):
             file_name, file_extension = os.path.splitext(value)
-            return file_name[:5] + '_actionnet.pkl'
+            return file_name[:5] + '_augmented.pkl'
             
         test = pd.DataFrame(pd.read_pickle(os.path.join(action_folder, 'ActionNet_test_augmented.pkl')))
         train = pd.DataFrame(pd.read_pickle(os.path.join(action_folder, 'ActionNet_train_augmented.pkl')))
@@ -392,9 +379,9 @@ def merge_pickles():
         test.to_pickle(f'{action_folder}/ActionNet_test_augmented.pkl')
         train.to_pickle(f'{action_folder}/ActionNet_train_augmented.pkl')
 
-        for filename in os.listdir(emg_folder):
-            if os.path.isfile(os.path.join(emg_folder, filename)) and 'augmented' in filename.lower():
-                os.remove(os.path.join(emg_folder, filename))
+    for filename in os.listdir(emg_folder):
+        if os.path.isfile(os.path.join(emg_folder, filename)) and ('rgb' in filename.lower() or 'emg' in filename.lower() or 'specto' in filename.lower()):
+            os.remove(os.path.join(emg_folder, filename))
             
 """ 
 1. Each channel is rectified by taking the absolute value
@@ -497,7 +484,7 @@ def save_spectograms():
         freq_signal = [spectrogram(signal[:, i]) for i in range(8)]
         return freq_signal
         
-    files_to_read = [s for s in os.listdir('emg/') if "preproc" in s]
+    files_to_read = [s for s in os.listdir('emg/') if "augmented" in s and 'rgb' not in s]
     
     failed_spectrograms = []
     backup_spectrograms = {}
@@ -513,11 +500,12 @@ def save_spectograms():
             try:
                 freq_signal = compute_spectrogram(signal)
             except RuntimeError:
-                print(f"Error: {name}")
+                print(f"Warning: {name}")
                 failed_spectrograms.append((name, label, len(spectFileName_label_dict)))
                 new_row_data = ['XXX', label, len(spectFileName_label_dict)]
                 spectFileName_label_dict.append(new_row_data)
             else:
+                # uncomment this line if you want to save the spectogram in the folder of spectograms
                 # final_save_spectrogram(freq_signal, name, title=label)
                 new_row_data = [name, label, len(spectFileName_label_dict)]
                 spectFileName_label_dict.append(new_row_data)
@@ -541,11 +529,13 @@ def pre_process_emg():
     emg_folder = 'emg/'
 
     for filename in os.listdir(emg_folder):
-        if os.path.isfile(os.path.join(emg_folder, filename)) and 'augmented' in filename.lower() and 'rgb' not in filename.lower():
+        if os.path.isfile(os.path.join(emg_folder, filename)) and 'augmented' in filename.lower():
             data = emg_adjust_features(os.path.join(emg_folder, filename))
-            data.to_pickle(f'{emg_folder}/{filename.split(".pkl")[0]}_preproc.pkl')
+            os.remove(os.path.join(emg_folder, filename))
+            data.to_pickle(f'{emg_folder}/{filename.split(".pkl")[0]}_emg.pkl')
+            print(f'{emg_folder}/{filename} was correctly preprocessed')
 
-def associationPerAgent():
+def association_per_agent():
     all_generated_spect = pickle.load(open('emg\spectFileName_label.pickle', 'rb'))
     
     all_agents = {}
@@ -560,12 +550,17 @@ def associationPerAgent():
         cur_agent = all_agents.get(agent)
         df = pd.DataFrame(cur_agent, columns=['file', 'description'])
         df.to_pickle(f"emg/{agent}_augmented_specto.pkl")        
-    
-if __name__ == '__main__':
-    # augment_dataset()
-    # emg2rgb()
-    # pre_process_emg()
-    # save_spectograms()
-    # associationPerAgent()
-    # update_split_files()
+
+    os.remove('emg/spectFileName_label.pickle')
+
+def pipeline():
+    augment_dataset()
+    pre_process_emg()
+    emg2rgb()
+    save_spectograms()
+    association_per_agent()
     merge_pickles()
+
+
+if __name__ == '__main__':
+    pipeline()

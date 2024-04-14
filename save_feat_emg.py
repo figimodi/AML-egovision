@@ -52,7 +52,7 @@ def main():
 
     action_classifier = tasks.ActionRecognition("action-classifier", models, 1,
                                                 args.total_batch, args.models_dir, num_classes,
-                                                args.save.num_clips, args.models, args=args)
+                                                args.n_clips, args.models, args=args)
     action_classifier.load_on_gpu(device)
     if args.resume_from is not None:
         action_classifier.load_last_model(args.resume_from)
@@ -60,7 +60,14 @@ def main():
     if args.action == "save":
         augmentations = {"train": train_augmentations, "test": test_augmentations}
         # the only action possible with this script is "save"
-        loader = torch.utils.data.DataLoader(ActionSenseDataset(args.mode, modalities, extract_features=True),
+        loader = torch.utils.data.DataLoader(ActionSenseDataset(args.mode, modalities, 
+                                                                extract_features=True,
+                                                                sampling=args.sampling,
+                                                                n_frames_per_clip=args.n_frames_per_clip, 
+                                                                n_clips=args.n_clips, 
+                                                                stride=args.stride, 
+                                                                dataset_conf=args.dataset, 
+                                                                transform=augmentations[args.mode]),
                                              batch_size=1, shuffle=False,
                                              num_workers=args.dataset.workers, pin_memory=True, drop_last=False)
         save_feat_emg(action_classifier, loader, device, action_classifier.current_iter, num_classes)
@@ -92,16 +99,16 @@ def save_feat_emg(model, loader, device, it, num_classes):
 
             for m in modalities:
                 batch, _, height, width = data[m].shape
-                data[m] = data[m].reshape(batch, args.save.num_clips,
-                                          args.save.num_frames_per_clip[m], -1, height, width)
+                data[m] = data[m].reshape(batch, args.n_clips,
+                                          args.n_frames_per_clip, -1, height, width)
                 data[m] = data[m].permute(1, 0, 3, 2, 4, 5)
 
-                logits[m] = torch.zeros((args.save.num_clips, batch, num_classes)).to(device)
-                features[m] = torch.zeros((args.save.num_clips, batch, model.task_models[m]
+                logits[m] = torch.zeros((args.n_clips, batch, num_classes)).to(device)
+                features[m] = torch.zeros((args.n_clips, batch, model.task_models[m]
                                            .module.feat_dim)).to(device)
 
             clip = {}
-            for i_c in range(args.save.num_clips):
+            for i_c in range(args.n_clips):
                 for m in modalities:
                     clip[m] = data[m][i_c].to(device)
 
@@ -114,7 +121,7 @@ def save_feat_emg(model, loader, device, it, num_classes):
                 logits[m] = torch.mean(logits[m], dim=0)
             for i in range(batch):
                 for m in modalities:
-                    sample[m] = features[m][:, i].cpu().detach().numpy()
+                    sample = {m: features[m][:, i].cpu().detach().numpy()} 
                 results_dict.append(sample)
             num_samples += batch
 

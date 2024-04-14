@@ -23,17 +23,16 @@ emg_descriptions_to_labels = [
 
 class ActionRecord():
     def __init__(self, video):
-        self._index = video[0]
-        self._sample = video[1]
-        # video[1] = ['start_frame', 'stop_frame', 'description', 'verb_class']
+        self._sample = video
+        # video = ['start_frame', 'stop_frame', 'description', 'verb_class']
     
     @property
     def start_frame(self):
-        return self._sample['start_frame']
+        return int(self._sample['start_frame'])
 
     @property
     def stop_frame(self):
-        return self._sample['stop_frame']
+        return int(self._sample['stop_frame'])
 
     @property
     def description(self):
@@ -45,4 +44,4 @@ class ActionRecord():
 
     @property
     def num_frames(self):
-        return {'RGB': self.stop_frame - self.start_frame}
+        return self.stop_frame - self.start_frame

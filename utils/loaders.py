@@ -37,36 +37,41 @@ emg_descriptions_to_labels = [
 
 
 class ActionSenseDataset(data.Dataset, ABC):
-    def __init__(self, mode, modalities, extract_features=False, sampling='dense', n_frames=16) -> None:
+    def __init__(self, mode, modalities, sampling, n_frames_per_clip, n_clips, stride, dataset_conf, transform=None, extract_features=False) -> None:
         file_name = f'./action-net/ActionNet_{mode}_augmented.pkl'
         self.split_file = pd.DataFrame(pd.read_pickle(file_name))
+        self.mode = mode
         self.modalities = modalities
         self.extract_features = extract_features
+        self.sampling = sampling
+        self.n_frames_per_clip = n_frames_per_clip
+        self.n_clips = n_clips
+        self.stride = stride
+        self.dataset_conf = dataset_conf
+        self.transform = transform
         self.model_features = None
         self.samples_dict = {}
         self.video_list = []
 
         # load all the samples
         for filename in os.listdir('emg/'):
-            if os.path.isfile(os.path.join('/emg', filename)) and 'actionnet' in filename:
-                samples = pd.DataFrame(pd.read_pickle(os.path.join('/emg', filename)))
+            if os.path.isfile(os.path.join('emg/', filename)) and 'augmented' in filename.lower():
+                samples = pd.DataFrame(pd.read_pickle(os.path.join('emg/', filename)))
                 agent = filename[:5]
                 self.samples_dict[agent] = samples
 
         if self.extract_features:
             # take the split file and load into video_list all the train/validation samples (by reading the split file)
-            for i, _ in self.split_file.iterrows():
-                index = self.split_file.loc[i, 'index']
-                filename = self.split_file.loc[i, 'file']
+            for i, row in self.split_file.iterrows():
+                index = row['index']
+                filename = row['file']
                 agent = filename[:5]
-                print(index)
-                print(filename)
                 video = self.samples_dict[agent].loc[index, ['start_frame', 'stop_frame', 'description', 'label']]
                 self.video_list.append(ActionRecord(video))
         else:
             # load the already extracted features to be the RGB samples
             # TODO: load features for all agents (instead of D1 use S00_2, S01_1, ...)
-            self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(f'saved_features/action_net/{sampling}_{n_frames}_D1_{mode}')['features'])['features_RGB']
+            self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(f'saved_features/action_net/{sampling}_{n_frames_per_clip}_D1_{mode}')['features'])['features_RGB']
             
             # load into EMG mode the samples of the corresponding split
             # load into specto mode the samples of the corresponding split
@@ -88,15 +93,15 @@ class ActionSenseDataset(data.Dataset, ABC):
                                                                                                     'description', 
                                                                                                     'label']], ignore_index=True)
                                                                                
-    def _get_train_indices(self, record: ActionRecord, modality='RGB'):
+    def _get_train_indices(self, record: ActionRecord):
         start_frame = 0
-        end_frame = record.num_frames[modality]
+        end_frame = record.num_frames
         
-        frames_per_clip = self.num_frames_per_clip[modality]
+        frames_per_clip = self.n_frames_per_clip
         
         selected_frames = []
         
-        for _ in range(self.num_clips):
+        for _ in range(self.n_clips):
             # If the number of frames of the clip is not sufficient
             # the remaining ones are chosen randomly from the sequence
             clip_frames = []
@@ -109,9 +114,9 @@ class ActionSenseDataset(data.Dataset, ABC):
                 clip_frames.sort()
             
             else:
-                if self.dense_sampling.get(modality, False):
+                if self.sampling == 'dense':
                     step = self.stride + 1
-                    # frames_per_side = (self.num_frames_per_clip[modality]-1)//2
+                    # frames_per_side = (self.n_frames_per_clip-1)//2
                     dead_select_zone = frames_per_clip * (step)
                     
                     clip_start_frame = random.randint(start_frame, max(start_frame, end_frame-dead_select_zone))
@@ -150,15 +155,15 @@ class ActionSenseDataset(data.Dataset, ABC):
         
         return to_return
 
-    def _get_val_indices(self, record: ActionRecord, modality='RGB'):
+    def _get_val_indices(self, record: ActionRecord):
         start_frame = 0
-        end_frame = record.num_frames[modality]
+        end_frame = record.num_frames
         
-        frames_per_clip = self.num_frames_per_clip[modality]
+        frames_per_clip = self.n_frames_per_clip
         
         selected_frames = []
         
-        for _ in range(self.num_clips):
+        for _ in range(self.n_clips):
             # If the number of frames of the clip is not sufficient
             # the remaining ones are chosen randomly from the sequence
             clip_frames = []
@@ -171,9 +176,9 @@ class ActionSenseDataset(data.Dataset, ABC):
                 clip_frames.sort()
             
             else:
-                if self.dense_sampling.get(modality, False):
+                if self.sampling == 'dense':
                     step = self.stride + 1
-                    # frames_per_side = (self.num_frames_per_clip[modality]-1)//2
+                    # frames_per_side = (self.n_frames_per_clip-1)//2
                     dead_select_zone = frames_per_clip * (step)
                     
                     clip_start_frame = random.randint(start_frame, max(start_frame, end_frame-dead_select_zone))
@@ -219,13 +224,13 @@ class ActionSenseDataset(data.Dataset, ABC):
             record = self.video_list[index]
             if self.mode == "train":
                 # here the training indexes are obtained with some randomization
-                segment_indices[modality] = self._get_train_indices(record, modality)
+                segment_indices['RGB'] = self._get_train_indices(record)
             else:
                 # here the testing indexes are obtained with no randomization, i.e., centered
-                segment_indices[modality] = self._get_val_indices(record, modality)
+                segment_indices['RGB'] = self._get_val_indices(record)
             
-            img, label = self.get('RGB', record, segment_indices[m])
-            frames[m] = img
+            img, label = self.get('RGB', record, segment_indices['RGB'])
+            frames['RGB'] = img
 
             return frames, label
         else:
@@ -254,16 +259,14 @@ class ActionSenseDataset(data.Dataset, ABC):
 
             idx_untrimmed = record.start_frame + idx
             try:
-                img = Image.open(os.path.join(data_path, record.untrimmed_video_name, tmpl.format(idx_untrimmed))) \
+                img = Image.open(os.path.join(data_path, tmpl.format(idx_untrimmed))) \
                     .convert('RGB')
             except FileNotFoundError:
                 print("Img not found")
-                print(data_path, record.untrimmed_video_name, tmpl.format(idx_untrimmed), idx, record.start_frame)
-                max_idx_video = int(sorted(glob.glob(os.path.join(data_path,
-                                                                  record.untrimmed_video_name,
-                                                                  "img_*")))[-1].split("_")[-1].split(".")[0])
+                print(data_path, tmpl.format(idx_untrimmed), idx, record.start_frame)
+                max_idx_video = int(sorted(glob.glob(os.path.join(data_path, "frames/frame_*")))[-1].split("_")[-1].split(".")[0])
                 if idx_untrimmed > max_idx_video:
-                    img = Image.open(os.path.join(data_path, record.untrimmed_video_name, tmpl.format(max_idx_video))) \
+                    img = Image.open(os.path.join(data_path, tmpl.format(max_idx_video))) \
                         .convert('RGB')
                 else:
                     raise FileNotFoundError
@@ -273,7 +276,10 @@ class ActionSenseDataset(data.Dataset, ABC):
             raise NotImplementedError("Modality not implemented")
 
     def __len__(self):
-        return len(self.data)
+        if self.video_list:   
+            return len(self.video_list)
+        else:
+            return max([len(self.model_features[m]) for m in self.modalities])
         
 
 class EpicKitchensDataset(data.Dataset, ABC):

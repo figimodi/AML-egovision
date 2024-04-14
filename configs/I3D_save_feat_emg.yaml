@@ -2,24 +2,26 @@ action: save # train or test
 name: saved_feat_I3D
 mode: test
 resume_from: ./saved_models/I3D_SourceOnlyD1
-
-save:
-  num_clips: 5
-  dense_sampling:
-    RGB: True
-  num_frames_per_clip:
-    RGB: 16
+sampling: dense
+n_frames_per_clip: 16
+n_clips: 5
+stride: 2
+# save:
+#   num_clips: 5
+#   dense_sampling:
+#     RGB: True
+#   num_frames_per_clip:
+#     RGB: 16
 
 dataset:
   annotations_path: emg
   agent: S00_2
   shift: S00_2
   workers: 4
-  stride: 2
   resolution: 224
   RGB:
-    data_path: ???
-    tmpl: "frame_{:010d}.jpg"
+    data_path: "../an_data"
+    tmpl: "frames/frame_{:010d}.jpg"
   Event:
     rgb4e: 6
 
