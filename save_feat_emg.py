@@ -114,6 +114,7 @@ def augment_partition(file_path: str):
 
         for c in range(n_chunks):
             # handle old descriptions
+            # TODO: move replacement at run time
             if data.loc[i, 'description'] == 'Get items from refrigerator/cabinets/drawers':
                 data.at[i, 'description'] = 'Get/replace items from refrigerator/cabinets/drawers'
             if data.loc[i, 'description'] == 'Open a jar of almond butter':
