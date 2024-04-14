@@ -554,14 +554,14 @@ def associationPerAgent():
     for i, row in all_generated_spect.iterrows():
         agent = f"{row['file'].split('_')[0]}_{row['file'].split('_')[1]}"
         if agent not in all_agents:
-            all_agents[agent]={}
-        all_agents[agent][row['file']] = row['description']
+            all_agents[agent]=[]
+        all_agents[agent].append([row['file'],row['description']])
         
     tot_elem = 0
 
     for agent in all_agents.keys():
-        cur_dict = all_agents.get(agent)
-        df = pd.DataFrame(cur_dict.items(), columns=['file', 'description'])
+        cur_agent = all_agents.get(agent)
+        df = pd.DataFrame(cur_agent, columns=['file', 'description'])
         tot_elem = tot_elem + len(df)
         df.to_pickle(f"emg/{agent}_augmented_specto.pkl")        
     
