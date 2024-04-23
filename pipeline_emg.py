@@ -448,18 +448,21 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
     
     return data
 
-def final_save_spectrogram(specgram, name, title=None, ylabel="freq_bin"):
-    fig, axs = plt.subplots(len(specgram), 1, figsize=(16, 8))
+def final_save_spectrogram(specgram_l, specgram_r, name, title=None, ylabel="freq_bin"):
+    fig, axs = plt.subplots(len(specgram_l)+len(specgram_r), 1, figsize=(16, 8))
 
     axs[0].set_title(title or "Spectrogram (db)")
 
-    for i, spec in enumerate(specgram):
-        im = axs[i].imshow(librosa.power_to_db(specgram[i]), origin="lower", aspect="auto")
+    both_specs = [*specgram_l, *specgram_r]
+
+    for i, spec in enumerate(both_specs):
+        im = axs[i].imshow(librosa.power_to_db(both_specs[i]), origin="lower", aspect="auto")
         axs[i].get_xaxis().set_visible(False)
         axs[i].get_yaxis().set_visible(False)
-
+    
     axs[i].set_xlabel("Frame number")
     axs[i].get_xaxis().set_visible(True)
+            
     plt.savefig(f"../spectograms/{name}")
     plt.close()
 
@@ -493,12 +496,14 @@ def save_spectograms():
         print(f"{i+1}/{len(files_to_read)}: {f}")
         emg_annotations = pd.read_pickle(f"emg/{f}")
         for sample_no in range(len(emg_annotations)):
-            signal = torch.from_numpy(emg_annotations.iloc[sample_no].myo_left_readings).float()
+            signal_l = torch.from_numpy(emg_annotations.iloc[sample_no].myo_left_readings).float()
+            signal_r = torch.from_numpy(emg_annotations.iloc[sample_no].myo_right_readings).float()
             label = emg_annotations.iloc[sample_no].description
             file_name_prefix = f.split("_augmented")[0]
             name = f"{file_name_prefix}_{sample_no}.png"
             try:
-                freq_signal = compute_spectrogram(signal)
+                freq_signal_l = compute_spectrogram(signal_l)
+                freq_signal_r = compute_spectrogram(signal_r)
             except RuntimeError:
                 print(f"Warning: {name}")
                 failed_spectrograms.append((name, label, len(spectFileName_label_dict)))
@@ -506,7 +511,7 @@ def save_spectograms():
                 spectFileName_label_dict.append(new_row_data)
             else:
                 # uncomment this line if you want to save the spectogram in the folder of spectograms
-                # final_save_spectrogram(freq_signal, name, title=label)
+                final_save_spectrogram(freq_signal_l, freq_signal_r, name, title=label)
                 new_row_data = [name, label, len(spectFileName_label_dict)]
                 spectFileName_label_dict.append(new_row_data)
                 if label not in backup_spectrograms:
@@ -558,8 +563,8 @@ def pipeline():
     pre_process_emg()
     emg2rgb()
     save_spectograms()
-    association_per_agent()
-    merge_pickles()
+    # association_per_agent()
+    # merge_pickles()
 
 
 if __name__ == '__main__':
