@@ -45,7 +45,7 @@ def main():
 
     # recover valid paths, domains, classes
     # this will output the domain conversion (D1 -> 8, et cetera) and the label list
-    num_classes, valid_labels, source_domain, target_domain = utils.utils.get_domains_and_labels(args)
+    num_classes = 20
     # device where everything is run
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -113,8 +113,6 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
     action_classifier.zero_grad()
     iteration = action_classifier.current_iter * (args.total_batch // args.batch_size)
 
-    print
-
     # the batch size should be total_batch but batch accumulation is done with batch size = batch_size.
     # real_iter is the number of iterations if the batch size was really total_batch
     for i in range(iteration, training_iterations):
@@ -147,12 +145,12 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
         source_label = source_label.to(device)
         data = {}
         
-        print("------------------------------")
-        print("DATA")
-        print(source_data)
-        print("LABELS")
-        print(source_label)
-        print("------------------------------")
+        logger.info("------------------------------")
+        logger.info("DATA")
+        logger.info(source_data)
+        logger.info("LABELS")
+        logger.info(source_label)
+        logger.info("------------------------------")
         
         return
 

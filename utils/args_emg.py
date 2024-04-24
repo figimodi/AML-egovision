@@ -9,17 +9,7 @@ def add_paths():
     path_conf = OmegaConf.create()
     path_conf.dataset = {}
     path_conf.dataset.RGB = {}
-    if platform.node() == 'tiche':
-        path_conf.wandb_dir = "/data2/ggoletto/"
-        path_conf.dataset.RGB.data_path = "/data/chiara/EK_data/rgb_flow/"
-    if platform.node() == "GABRDESK":
-        path_conf.wandb_dir = None
-        path_conf.dataset.RGB.data_path = "/home/ezius/HDD/EK_data/rgb_flow/"
-    if platform.node() == "hyperion":
-        path_conf.wandb_dir = "/data/mirco/wandb_gole"
-        path_conf.dataset.RGB.data_path = "/data/EpicKitchen/EpicKitchenDA/rgb_flow"
-        # path_conf.models_dir = "/data/mirco/RAL_EdgeEgoModels/"
-        path_conf.models_dir = "/data/mirco/CVPR_AffordanceDA/"
+    path_conf.dataset.EMG = {}
     return path_conf
 
 
