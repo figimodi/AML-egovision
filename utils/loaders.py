@@ -37,7 +37,7 @@ emg_descriptions_to_labels = [
 
 
 class ActionSenseDataset(data.Dataset, ABC):
-    def __init__(self, mode, modalities, sampling, n_frames_per_clip, n_clips, stride, dataset_conf, transform=None, extract_features=False) -> None:
+    def __init__(self, mode, modalities, sampling='dense', n_frames_per_clip=16, n_clips=5, stride=2, dataset_conf=None, transform=None, extract_features=False) -> None:
         file_name = f'./action-net/ActionNet_{mode}_augmented.pkl'
         self.split_file = pd.DataFrame(pd.read_pickle(file_name))
         self.mode = mode

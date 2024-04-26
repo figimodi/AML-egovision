@@ -42,7 +42,7 @@ def main():
     init_operations()
     
     modality = args.modality
-
+    args_mod = args.modalities[modality]
     num_classes = 20
     
     # device where everything is run
@@ -60,12 +60,10 @@ def main():
         # In our case it represents the feature dimensionality which is equivalent to 1024 for I3D
         models[m] = getattr(model_list, args.modalities[m].models.default.name)(num_classes)
 
-    print(models)
-    return
     # the models are wrapped into the ActionRecognition task which manages all the training steps
     action_classifier = tasks.ActionRecognition("action-classifier", models, args.batch_size,
                                                 args.total_batch, args.models_dir, num_classes,
-                                                args.train.num_clips, args.models, args=args)
+                                                args_mod.train.num_clips, args_mod.models, args=args)
     action_classifier.load_on_gpu(device)
 
     if args.action == "train":
@@ -78,12 +76,12 @@ def main():
         training_iterations = args.train.num_iter * (args.total_batch // args.batch_size)
         # all dataloaders are generated here
         train_loader = torch.utils.data.DataLoader(
-            ActionSenseDataset(args.dataset.shift.split("-")[0], modalities, 'train', args.dataset, None,  None, None, None,  load_feat = True),
+            ActionSenseDataset(args.action, [args.modality])
             batch_size=args.batch_size, shuffle=True, num_workers=args.dataset.workers, pin_memory=True, drop_last=True
         )
 
         val_loader = torch.utils.data.DataLoader(
-            ActionSenseDataset(args.dataset.shift.split("-")[-1], modalities, 'val', args.dataset, None, None, None, None, load_feat=True),
+            ActionSenseDataset(args.action, [args.modality])
             batch_size=args.batch_size, shuffle=False, num_workers=args.dataset.workers, pin_memory=True, drop_last=False
         )
         
