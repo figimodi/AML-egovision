@@ -63,7 +63,7 @@ def main():
     # the models are wrapped into the ActionRecognition task which manages all the training steps
     action_classifier = tasks.ActionRecognition("action-classifier", models, args.batch_size,
                                                 args.total_batch, args.models_dir, num_classes,
-                                                args_mod.train.num_clips, args_mod.models, args=args)
+                                                args_mod.train.num_clips if modality!="EMG" else -1, args_mod.models, args=args)
     action_classifier.load_on_gpu(device)
 
     if args.action == "train":
@@ -76,13 +76,13 @@ def main():
         training_iterations = args.train.num_iter * (args.total_batch // args.batch_size)
         # all dataloaders are generated here
         train_loader = torch.utils.data.DataLoader(
-            ActionSenseDataset(args.action, [args.modality])
-            batch_size=args.batch_size, shuffle=True, num_workers=args.dataset.workers, pin_memory=True, drop_last=True
+            ActionSenseDataset(args.action, [args.modality]),
+            batch_size=args.batch_size, shuffle=True, num_workers=args_mod.dataset.workers, pin_memory=True, drop_last=True
         )
 
         val_loader = torch.utils.data.DataLoader(
-            ActionSenseDataset(args.action, [args.modality])
-            batch_size=args.batch_size, shuffle=False, num_workers=args.dataset.workers, pin_memory=True, drop_last=False
+            ActionSenseDataset(args.action, [args.modality]),
+            batch_size=args.batch_size, shuffle=False, num_workers=args_mod.dataset.workers, pin_memory=True, drop_last=False
         )
         
         train(action_classifier, train_loader, val_loader, device, num_classes)
@@ -92,8 +92,8 @@ def main():
             action_classifier.load_last_model(args.resume_from)
         
         val_loader = torch.utils.data.DataLoader(
-            ActionSenseDataset(args.dataset.shift.split("-")[-1], modalities, 'val', args.dataset, None, None, None, None, load_feat=True),
-            batch_size=args.batch_size, shuffle=False, num_workers=args.dataset.workers, pin_memory=True, drop_last=False
+            ActionSenseDataset(args.action, [args.modality]),
+            batch_size=args.batch_size, shuffle=False, num_workers=args_mod.dataset.workers, pin_memory=True, drop_last=False
         )
 
         validate(action_classifier, val_loader, device, action_classifier.current_iter, num_classes)
