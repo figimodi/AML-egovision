@@ -5,7 +5,7 @@ import torch.nn.parallel
 import torch.optim
 import torch
 from utils.loaders import ActionSenseDataset
-from utils.args import args
+from utils.args_emg import args
 from utils.utils import pformat_dict
 import utils
 import numpy as np
@@ -15,17 +15,18 @@ import tasks
 import wandb
 
 # global variables among training functions
+
 training_iterations = 0
-modalities = None
+modalities=[args.modality]
+
 np.random.seed(13696641)
 torch.manual_seed(13696641)
-
 
 def init_operations():
     """
     parse all the arguments, generate the logger, check gpus to be used and wandb
     """
-    logger.info("Running with parameters: " + pformat_dict(args, indent=1))
+    # logger.info("Running with parameters: " + pformat_dict(args, indent=1))
 
     # this is needed for multi-GPUs systems where you just want to use a predefined set of GPUs
     if args.gpus is not None:
@@ -37,27 +38,30 @@ def init_operations():
         wandb.init(group=args.wandb_name, dir=args.wandb_dir)
         wandb.run.name = args.name + "_" + args.shift.split("-")[0] + "_" + args.shift.split("-")[-1]
 
-
 def main():
-    global training_iterations, modalities
     init_operations()
-    modalities = args.modality
+    
+    modality = args.modality
 
-    # recover valid paths, domains, classes
-    # this will output the domain conversion (D1 -> 8, et cetera) and the label list
     num_classes = 20
+    
     # device where everything is run
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # these dictionaries are for more multi-modal training/testing, each key is a modality used
     models = {}
+    
+    print(model_list)
+    
     logger.info("Instantiating models per modality")
     for m in modalities:
-        logger.info('{} Net\tModality: {}'.format(args.models[m].model, m))
+        logger.info('Model: {}\tModality: {}'.format(args.modalities[m].models.default.name, m))
         # notice that here, the first parameter passed is the input dimension
         # In our case it represents the feature dimensionality which is equivalent to 1024 for I3D
-        models[m] = getattr(model_list, args.models[m].model)(num_classes)
+        models[m] = getattr(model_list, args.modalities[m].models.default.name)(num_classes)
 
+    print(models)
+    return
     # the models are wrapped into the ActionRecognition task which manages all the training steps
     action_classifier = tasks.ActionRecognition("action-classifier", models, args.batch_size,
                                                 args.total_batch, args.models_dir, num_classes,
