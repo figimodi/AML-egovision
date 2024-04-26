@@ -30,7 +30,7 @@ modalities:
       features_name: test_feat_action
 
     models:
-      default:
+      EMG:
         name: "FinalClassifierEMG"
         normalize: False
         kwargs: {}
@@ -63,7 +63,7 @@ modalities:
       features_name: test_feat_kinetics
 
     models:
-      default:
+      RGB:
         name: "Classifier"
         normalize: False
         kwargs: {}

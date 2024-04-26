@@ -55,10 +55,10 @@ def main():
     
     logger.info("Instantiating models per modality")
     for m in modalities:
-        logger.info('Model: {}\tModality: {}'.format(args.modalities[m].models.default.name, m))
+        logger.info('Model: {}\tModality: {}'.format(args.modalities[m].models[m].name, m))
         # notice that here, the first parameter passed is the input dimension
         # In our case it represents the feature dimensionality which is equivalent to 1024 for I3D
-        models[m] = getattr(model_list, args.modalities[m].models.default.name)(num_classes)
+        models[m] = getattr(model_list, args.modalities[m].models[m].name)(num_classes)
 
     # the models are wrapped into the ActionRecognition task which manages all the training steps
     action_classifier = tasks.ActionRecognition("action-classifier", models, args.batch_size,
@@ -73,7 +73,7 @@ def main():
         # define number of iterations I'll do with the actual batch: we do not reason with epochs but with iterations
         # i.e. number of batches passed
         # notice, here it is multiplied by tot_batch/batch_size since gradient accumulation technique is adopted
-        training_iterations = args.train.num_iter * (args.total_batch // args.batch_size)
+        training_iterations = args_mod.train.num_iter * (args.total_batch // args.batch_size)
         # all dataloaders are generated here
         train_loader = torch.utils.data.DataLoader(
             ActionSenseDataset(args.action, [args.modality]),

@@ -49,7 +49,7 @@ class ActionSenseDataset(data.Dataset, ABC):
         self.stride = stride
         self.dataset_conf = dataset_conf
         self.transform = transform
-        self.model_features = None
+        self.model_features = pd.DataFrame(columns=['EMG'])
         self.samples_dict = {}
         self.video_list = []
 
@@ -71,7 +71,8 @@ class ActionSenseDataset(data.Dataset, ABC):
         else:
             # load the already extracted features to be the RGB samples
             # TODO: load features for all agents (instead of D1 use S00_2, S01_1, ...)
-            self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(f'saved_features/action_net/{sampling}_{n_frames_per_clip}_D1_{mode}')['features'])['features_RGB']
+            target_file = f'saved_features/action_net/{sampling}_{n_frames_per_clip}_D1_{mode}.pkl'
+            self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(target_file)['features'])['features_RGB']
             
             # load into EMG mode the samples of the corresponding split
             # load into specto mode the samples of the corresponding split
