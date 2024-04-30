@@ -12,7 +12,7 @@ from utils.logger import logger
 
 import numpy as np
 
-columns_EMG = ['start', 'stop', 'myo_left_timestamps', 'myo_left_readings', 'myo_right_timestamps', 'myo_right_readings', 'description', 'label']
+columns_EMG = ['start_timestamp', 'stop_timestamp', 'myo_left_timestamps', 'myo_left_readings', 'myo_right_timestamps', 'myo_right_readings', 'description', 'label']
 
 emg_descriptions_to_labels = [
     'Clean a pan with a sponge',
@@ -77,17 +77,18 @@ class ActionSenseDataset(data.Dataset, ABC):
             self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(target_file)['features'])['features_RGB']
             
             self.model_features['EMG'] = pd.DataFrame([],columns=columns_EMG)
-            self.model_features['specto'] = pd.DataFrame([],columns=['file', 'desription', 'label'])
+            self.model_features['specto'] = pd.DataFrame([],columns=['specto_file', 'description', 'label'])
             
             # load into EMG mode the samples of the corresponding split
             # load into specto mode the samples of the corresponding split
-            for i, _ in self.split_file.iterrows():
-                index = self.split_file.loc[i, 'index']
-                filename = self.split_file.loc[i, 'file']
+            for i, row in self.split_file.iterrows():
+                index = row['index']
+                filename = row['file']
+                
                 agent = filename[:5]
                 
                 new_row_EMG = pd.DataFrame(self.samples_dict[agent].loc[index, columns_EMG]).T
-                new_row_specto = pd.DataFrame(self.samples_dict[agent].loc[index, ['file', 'desription', 'label']]).T
+                new_row_specto = pd.DataFrame(self.samples_dict[agent].loc[index, ['specto_file', 'description', 'label']]).T
                 
                 self.model_features['EMG'] = pd.concat([self.model_features['EMG'], new_row_EMG] , ignore_index=True)
                 self.model_features['specto'] = pd.concat([self.model_features['specto'], new_row_specto] , ignore_index=True)
@@ -278,10 +279,7 @@ class ActionSenseDataset(data.Dataset, ABC):
         if self.video_list:   
             return len(self.video_list)
         else:
-            print(self.model_features['EMG'])
-            m = max([len(self.model_features[m]) for m in self.modalities])
-            return m
-        
+            return max([len(self.model_features[m]) for m in self.modalities])
 
 class EpicKitchensDataset(data.Dataset, ABC):
     def __init__(self, split, modalities, mode, dataset_conf, num_frames_per_clip, num_clips, dense_sampling,
