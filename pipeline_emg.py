@@ -98,8 +98,8 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
 
     # mapping each old index to the list of new (augmented) indices
     mapping_new_index = {}
-    for i, _ in data.iterrows():
-        old_index = data.loc[i, 'old_index']
+    for i, row in data.iterrows():
+        old_index = row['old_index']
         new_index = i
         
         if old_index in mapping_new_index:
@@ -158,16 +158,14 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
     new_test_rows.to_pickle(f'action-net/ActionNet_test_augmented.pkl')
     new_train_rows.to_pickle(f'action-net/ActionNet_train_augmented.pkl')
 
-    # TODO: create three columns: 'file_emg', 'file_rgb', 'file_specto' with the corresponding path to pkl files with the samples
-
 def augment_partition(file_path: str):
     data = pd.DataFrame(pd.read_pickle(file_path))
     new_data = []
 
-    for i, _ in data.iterrows():
-        if data.loc[i, 'description'] == 'calibration':
+    for i, row in data.iterrows():
+        if row['description'] == 'calibration':
             continue
-        left_timestamps_chunks, right_timestamps_chunks, left_readings_chunks, right_readings_chunks = chunk_timestamps_and_readings(data.loc[i, 'myo_left_timestamps'], data.loc[i, 'myo_left_readings'], data.loc[i, 'myo_right_timestamps'], data.loc[i, 'myo_right_readings'])
+        left_timestamps_chunks, right_timestamps_chunks, left_readings_chunks, right_readings_chunks = chunk_timestamps_and_readings(row['myo_left_timestamps'], row['myo_left_readings'], row['myo_right_timestamps'], row['myo_right_readings'])
 
         if len(left_timestamps_chunks) < len(right_timestamps_chunks):
             right_timestamps_chunks = right_timestamps_chunks[:-1]
@@ -224,63 +222,25 @@ def augment_dataset():
     for p in partitions:
         augment_partition(os.path.join(emg_folder, p))
 
-# def update_split_files():
-#     test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test_augmented.pkl'))
-#     train = pd.DataFrame(pd.read_pickle('action-net/ActionNet_train_augmented.pkl'))
-
-#     if 'file' in train.columns:
-#         train = train.rename(columns={'file':'emg_file'})
-
-#     if 'file' in test.columns:
-#         test = test.rename(columns={'file':'emg_file'})
-
-#     for i, row in train.iterrows():
-#         filename = row['emg_file']
-#         if 'preproc' not in filename:
-#             file_name, file_extension = os.path.splitext(filename)
-#             train.at[i, 'emg_file'] = os.path.join(filename, '_preproc.pkl')
-
-#     for i, row in test.iterrows():
-#         filename = row['emg_file']
-#         if 'preproc' not in filename:
-#             file_name, file_extension = os.path.splitext(filename)
-#             test.at[i, 'emg_file'] = os.path.join(filename, '_preproc.pkl')
-
-#     if 'rgb_file' not in train.columns:
-#         train.insert(2, 'rgb_file', [train.loc[i, 'emg_file'].replace('_preproc', '_rgb') for i in range(len(train))], allow_duplicates=True)
-
-#     if 'rgb_file' not in test.columns:
-#         test.insert(2, 'rgb_file', [test.loc[i, 'emg_file'].replace('_preproc', '_rgb') for i in range(len(test))], allow_duplicates=True)
-
-#     if 'spectograms_file' not in train.columns:
-#         train.insert(2, 'spectograms_file', [train.loc[i, 'emg_file'].replace('_preproc', '_specto') for i in range(len(train))], allow_duplicates=True)
-
-#     if 'spectograms_file' not in test.columns:
-#         test.insert(2, 'spectograms_file', [test.loc[i, 'emg_file'].replace('_preproc', '_specto') for i in range(len(test))], allow_duplicates=True)
-
-#     return
-
 def emg2rgb():
     emg_folder = 'emg/'
     partitions = os.listdir(emg_folder)
+    frame_rate = 29.67
 
     for filename in partitions:
         if os.path.isfile(os.path.join(emg_folder, filename)) and 'augmented' in filename.lower():
             data = pd.DataFrame(pd.read_pickle(os.path.join(emg_folder, filename)))
             new_data = []
 
-            for i, _ in data.iterrows():
+
+            for i, row in data.iterrows():
                 new_row = {
-                    'uid': i,
-                    'participant_id': 'P04',
-                    'video_id': 'P04_01',
-                    'narration': data.loc[i, 'description'],
-                    'start_timestamp': data.loc[i, 'start'],
-                    'stop_timestamp': data.loc[i, 'stop'],
-                    'start_frame': data.loc[i, 'start'] * 29.67,
-                    'stop_frame': data.loc[i, 'stop'] * 29.67,
-                    'verb': data.loc[i, 'description'],
-                    'verb_class': emg_descriptions_to_labels.index(data.loc[i, 'description']),
+                    'start_timestamp': row['start'],
+                    'stop_timestamp': row['stop'],
+                    'start_frame': row['start'] * frame_rate,
+                    'stop_frame': row['stop'] * frame_rate,
+                    'verb': row['description'],
+                    'verb_class': emg_descriptions_to_labels.index(row['description']),
                 }
                 new_data.append(new_row)
 
@@ -291,6 +251,16 @@ def emg2rgb():
             file_name, file_extension = os.path.splitext(filename)
             new_data.to_pickle(f'{emg_folder}/{file_name.split("_emg")[0]}_rgb.pkl')
             print(f'{filename} succesfully produced the rgb counterpart')
+
+def remove_t0_time(value: float, t0: float, frame_rate: float):
+    if type(value)==list:
+        return [t - t0 for t in value]
+    else:
+        return value - t0
+
+def remove_t0_frame(value: float, t0: float, frame_rate: float):
+    # remove 
+    return int(value - (t0*frame_rate))
 
 def merge_pickles():
     agents = {} 
@@ -318,24 +288,16 @@ def merge_pickles():
 
         # remove t0 from timestamps and frame nubers T0
         # >>> min(emg['start'])
-        # 1654639217.5249205 ====> inizio video = frame_t0=49093145568
-        # 1654639888.5249205 ====> calibration start = 11m11s
-        # 1654640077,704248 ====> prima azione = 14m20s
-        def remove_t0_time(value: float):
-            if type(value)==list:
-                return [t - 1654639217.5249205 for t in value]
-            else:
-                return value - 1654639217.5249205
+        # 1655239114.183343 ====> calibration start
+        frame_rate = 29.62
+        t0 = min(emg['start'])
 
-        def remove_t0_frame(value: int):
-            return value - 49093145568
-
-        emg['start'] = emg['start'].map(remove_t0_time)
-        emg['stop'] = emg['stop'].map(remove_t0_time)
-        emg['myo_left_timestamps'] = emg['myo_left_timestamps'].map(remove_t0_time)
-        emg['myo_right_timestamps'] = emg['myo_right_timestamps'].map(remove_t0_time)
-        rgb['start_frame'] = rgb['start_frame'].map(remove_t0_frame)
-        rgb['stop_frame'] = rgb['stop_frame'].map(remove_t0_frame)
+        emg['start'] = emg['start'].map(lambda x: remove_t0_time(x, t0=t0, frame_rate=29.67))
+        emg['stop'] = emg['stop'].map(lambda x: remove_t0_time(x, t0=t0, frame_rate=29.67))
+        emg['myo_left_timestamps'] = emg['myo_left_timestamps'].map(lambda x: remove_t0_time(x, t0=t0, frame_rate=29.67))
+        emg['myo_right_timestamps'] = emg['myo_right_timestamps'].map(lambda x: remove_t0_time(x, t0=t0, frame_rate=29.67))
+        rgb['start_frame'] = rgb['start_frame'].map(lambda x: remove_t0_frame(x, t0=t0, frame_rate=29.67))
+        rgb['stop_frame'] = rgb['stop_frame'].map(lambda x: remove_t0_frame(x, t0=t0, frame_rate=29.67))
 
         # keep only necessary columns
         emg = emg.loc[:, [
@@ -386,7 +348,7 @@ def merge_pickles():
 """ 
 1. Each channel is rectified by taking the absolute value
 2. Low-pass filter with cutoff frequency 5 Hz is applied 
-3. All 8 channels from an armband are then jointly normalized and shifted to the range [−1, 1] using the minimum and maximum values across all channels
+3. All 8 channels from an armband are then jointly normalized and shifted to the range [-1, 1] using the minimum and maximum values across all channels
 4. The absolute value of EMG data across all 8 forearm channels are summed together in each timestep to indicate overall forearm activation
 5. The streams are then smoothed to focus on low-frequency signals on time scales comparable to slicing motions (ACTUALLY REFERS TO THE PREVIOUS APPLIED FILTER ACCORDING TO SLACK)
 """
@@ -533,7 +495,7 @@ def pre_process_emg():
             data = emg_adjust_features(os.path.join(emg_folder, filename))
             os.remove(os.path.join(emg_folder, filename))
             data.to_pickle(f'{emg_folder}/{filename.split(".pkl")[0]}_emg.pkl')
-            print(f'{emg_folder}/{filename} was correctly preprocessed')
+            print(f'{emg_folder}{filename} was correctly preprocessed')
 
 def association_per_agent():
     all_generated_spect = pickle.load(open('emg\spectFileName_label.pickle', 'rb'))

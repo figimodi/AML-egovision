@@ -66,9 +66,13 @@ class ActionSenseDataset(data.Dataset, ABC):
                 index = row['index']
                 filename = row['file']
                 agent = filename[:5]
-                video = self.samples_dict[agent].loc[index, ['start_frame', 'stop_frame', 'description', 'label']]
-                self.video_list.append(ActionRecord(video))
-        else:
+                try:
+                    video = self.samples_dict[agent].loc[index, ['start_frame', 'stop_frame', 'description', 'label']]
+                    self.video_list.append(ActionRecord(video))
+                except:
+                    # TODO: check why some index exceed the lenght of the agnet
+                    print(f'error loading sample with index {index} in agent {agent}')
+        else: 
             # load the already extracted features to be the RGB samples
             # TODO: load features for all agents (instead of D1 use S00_2, S01_1, ...)
             self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(f'saved_features/action_net/{sampling}_{n_frames_per_clip}_D1_{mode}')['features'])['features_RGB']
@@ -232,7 +236,7 @@ class ActionSenseDataset(data.Dataset, ABC):
             img, label = self.get('RGB', record, segment_indices['RGB'])
             frames['RGB'] = img
 
-            return frames, label
+            return frames, label%8
         else:
             sample = {}
             for modality in self.modalities:
@@ -264,7 +268,7 @@ class ActionSenseDataset(data.Dataset, ABC):
             except FileNotFoundError:
                 print("Img not found")
                 print(data_path, tmpl.format(idx_untrimmed), idx, record.start_frame)
-                max_idx_video = int(sorted(glob.glob(os.path.join(data_path, "frames/frame_*")))[-1].split("_")[-1].split(".")[0])
+                max_idx_video = int(sorted(glob.glob(os.path.join(data_path, f"frames/{self.dataset_conf.agent}/frame_*")))[-1].split("_")[-1].split(".")[0])
                 if idx_untrimmed > max_idx_video:
                     img = Image.open(os.path.join(data_path, tmpl.format(max_idx_video))) \
                         .convert('RGB')
