@@ -12,6 +12,8 @@ from utils.logger import logger
 
 import numpy as np
 
+columns_EMG = ['start', 'stop', 'myo_left_timestamps', 'myo_left_readings', 'myo_right_timestamps', 'myo_right_readings', 'description', 'label']
+
 emg_descriptions_to_labels = [
     'Clean a pan with a sponge',
     'Clean a pan with a towel',
@@ -49,7 +51,7 @@ class ActionSenseDataset(data.Dataset, ABC):
         self.stride = stride
         self.dataset_conf = dataset_conf
         self.transform = transform
-        self.model_features = pd.DataFrame(columns=['EMG'])
+        self.model_features = {}
         self.samples_dict = {}
         self.video_list = []
 
@@ -74,26 +76,22 @@ class ActionSenseDataset(data.Dataset, ABC):
             target_file = f'saved_features/action_net/{sampling}_{n_frames_per_clip}_D1_{mode}.pkl'
             self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(target_file)['features'])['features_RGB']
             
+            self.model_features['EMG'] = pd.DataFrame([],columns=columns_EMG)
+            self.model_features['specto'] = pd.DataFrame([],columns=['file', 'desription', 'label'])
+            
             # load into EMG mode the samples of the corresponding split
             # load into specto mode the samples of the corresponding split
             for i, _ in self.split_file.iterrows():
                 index = self.split_file.loc[i, 'index']
                 filename = self.split_file.loc[i, 'file']
                 agent = filename[:5]
-                self.model_features['EMG'] = self.model_features.append(self.samples_dict[agent].loc[index, [
-                                                                                                    'start', 
-                                                                                                    'stop', 
-                                                                                                    'myo_left_timestamps', 
-                                                                                                    'myo_left_readings', 
-                                                                                                    'myo_right_timestamps', 
-                                                                                                    'myo_right_readings', 
-                                                                                                    'description', 
-                                                                                                    'label']], ignore_index=True)
-                self.model_features['specto'] = self.model_features.append(self.samples_dict[agent].loc[index, [
-                                                                                                    'file', 
-                                                                                                    'description', 
-                                                                                                    'label']], ignore_index=True)
-                                                                               
+                
+                new_row_EMG = pd.DataFrame(self.samples_dict[agent].loc[index, columns_EMG]).T
+                new_row_specto = pd.DataFrame(self.samples_dict[agent].loc[index, ['file', 'desription', 'label']]).T
+                
+                self.model_features['EMG'] = pd.concat([self.model_features['EMG'], new_row_EMG] , ignore_index=True)
+                self.model_features['specto'] = pd.concat([self.model_features['specto'], new_row_specto] , ignore_index=True)
+                                                                           
     def _get_train_indices(self, record: ActionRecord):
         start_frame = 0
         end_frame = record.num_frames
@@ -280,7 +278,9 @@ class ActionSenseDataset(data.Dataset, ABC):
         if self.video_list:   
             return len(self.video_list)
         else:
-            return max([len(self.model_features[m]) for m in self.modalities])
+            print(self.model_features['EMG'])
+            m = max([len(self.model_features[m]) for m in self.modalities])
+            return m
         
 
 class EpicKitchensDataset(data.Dataset, ABC):

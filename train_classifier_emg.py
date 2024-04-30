@@ -153,8 +153,6 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
         logger.info("LABELS")
         logger.info(source_label)
         logger.info("------------------------------")
-        
-        return
 
         if args.models.EMG.model == 'LSTM':
             # skip aggregation but concatenate features
