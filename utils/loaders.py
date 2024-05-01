@@ -76,7 +76,6 @@ class ActionSenseDataset(data.Dataset, ABC):
                     print(f'error loading sample with index {index} in agent {agent}')
         else: 
             # load the already extracted features to be the RGB samples
-            # TODO: load features for all agents (instead of D1 use S00_2, S01_1, ...)
             target_file = f'saved_features/action_net/{sampling}_{n_frames_per_clip}_D1_{mode}.pkl'
             self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(target_file)['features'])['features_RGB']
             

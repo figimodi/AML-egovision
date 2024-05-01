@@ -259,8 +259,8 @@ def remove_t0_time(value: float, t0: float, frame_rate: float):
         return value - t0
 
 def remove_t0_frame(value: float, t0: float, frame_rate: float):
-    # remove 
-    return int(value - (t0*frame_rate))
+    # remove t0. add 1 because the first frame is 0000001 and not 0000000
+    return int(value - (t0*frame_rate) + 1)
 
 def merge_pickles():
     agents = {} 
@@ -473,7 +473,7 @@ def save_spectograms():
                 spectFileName_label_dict.append(new_row_data)
             else:
                 # uncomment this line if you want to save the spectogram in the folder of spectograms
-                final_save_spectrogram(freq_signal_l, freq_signal_r, name, title=label)
+                # final_save_spectrogram(freq_signal_l, freq_signal_r, name, title=label)
                 new_row_data = [name, label, len(spectFileName_label_dict)]
                 spectFileName_label_dict.append(new_row_data)
                 if label not in backup_spectrograms:
@@ -525,8 +525,8 @@ def pipeline():
     pre_process_emg()
     emg2rgb()
     save_spectograms()
-    # association_per_agent()
-    # merge_pickles()
+    association_per_agent()
+    merge_pickles()
 
 
 if __name__ == '__main__':

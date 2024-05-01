@@ -63,7 +63,7 @@ def main():
     # the models are wrapped into the ActionRecognition task which manages all the training steps
     action_classifier = tasks.ActionRecognition("action-classifier", models, args.batch_size,
                                                 args.total_batch, args.models_dir, num_classes,
-                                                args_mod.train.num_clips if modality!="EMG" else -1, args_mod.models, args=args)
+                                                args_mod.train.num_clips if modality!="EMG" else 1, args_mod.models, args=args)
     action_classifier.load_on_gpu(device)
 
     if args.action == "train":

@@ -134,7 +134,7 @@ def save_feat_emg(model, loader, device, it, num_classes):
         os.makedirs("saved_features", exist_ok=True)
         pickle.dump(results_dict, open(os.path.join("saved_features", args.name + "_" +
                                                     args.dataset.agent + "_" +
-                                                    args.split + ".pkl"), 'wb'))
+                                                    args.mode + ".pkl"), 'wb'))
 
         class_accuracies = [(x / y) * 100 for x, y in zip(model.accuracy.correct, model.accuracy.total)]
         logger.info('Final accuracy: top1 = %.2f%%\ttop5 = %.2f%%' % (model.accuracy.avg[1],
