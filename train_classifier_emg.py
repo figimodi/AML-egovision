@@ -75,13 +75,18 @@ def main():
         # notice, here it is multiplied by tot_batch/batch_size since gradient accumulation technique is adopted
         training_iterations = args_mod.train.num_iter * (args.total_batch // args.batch_size)
         # all dataloaders are generated here
+        
+        print("Train loader")
+        
         train_loader = torch.utils.data.DataLoader(
-            ActionSenseDataset(args.action, [args.modality]),
+            ActionSenseDataset('train', [args.modality]),
             batch_size=args.batch_size, shuffle=True, num_workers=args_mod.dataset.workers, pin_memory=True, drop_last=True
         )
+        
+        print("Val loader")
 
         val_loader = torch.utils.data.DataLoader(
-            ActionSenseDataset(args.action, [args.modality]),
+                ActionSenseDataset('test', [args.modality]),
             batch_size=args.batch_size, shuffle=False, num_workers=args_mod.dataset.workers, pin_memory=True, drop_last=False
         )
         
@@ -92,7 +97,7 @@ def main():
             action_classifier.load_last_model(args.resume_from)
         
         val_loader = torch.utils.data.DataLoader(
-            ActionSenseDataset(args.action, [args.modality]),
+            ActionSenseDataset("test", [args.modality]),
             batch_size=args.batch_size, shuffle=False, num_workers=args_mod.dataset.workers, pin_memory=True, drop_last=False
         )
 
@@ -100,6 +105,7 @@ def main():
 
 
 def train(action_classifier, train_loader, val_loader, device, num_classes):
+    print("Train")
     """
     function to train the model on the test set
     action_classifier: Task containing the model to be trained
@@ -146,13 +152,6 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
         ''' Action recognition'''
         source_label = source_label.to(device)
         data = {}
-        
-        logger.info("------------------------------")
-        logger.info("DATA")
-        logger.info(source_data)
-        logger.info("LABELS")
-        logger.info(source_label)
-        logger.info("------------------------------")
 
         if args.models.EMG.model == 'LSTM':
             # skip aggregation but concatenate features

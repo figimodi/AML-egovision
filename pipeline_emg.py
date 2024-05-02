@@ -466,7 +466,7 @@ def final_save_spectrogram(specgram_l, specgram_r, name, title=None, ylabel="fre
     plt.savefig(f"../spectograms/{name}")
     plt.close()
 
-def save_spectograms():
+def save_spectograms(skipSectrograms = 0):
     spectFileName_label_dict = []
     
     n_fft = 32
@@ -511,7 +511,8 @@ def save_spectograms():
                 spectFileName_label_dict.append(new_row_data)
             else:
                 # uncomment this line if you want to save the spectogram in the folder of spectograms
-                final_save_spectrogram(freq_signal_l, freq_signal_r, name, title=label)
+                if not skipSectrograms:
+                    final_save_spectrogram(freq_signal_l, freq_signal_r, name, title=label)
                 new_row_data = [name, label, len(spectFileName_label_dict)]
                 spectFileName_label_dict.append(new_row_data)
                 if label not in backup_spectrograms:
@@ -562,9 +563,9 @@ def pipeline():
     augment_dataset()
     pre_process_emg()
     emg2rgb()
-    save_spectograms()
-    # association_per_agent()
-    # merge_pickles()
+    save_spectograms(skipSectrograms=1)
+    association_per_agent()
+    merge_pickles()
 
 
 if __name__ == '__main__':
