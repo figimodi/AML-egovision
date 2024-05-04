@@ -105,7 +105,6 @@ def main():
 
 
 def train(action_classifier, train_loader, val_loader, device, num_classes):
-    print("Train")
     """
     function to train the model on the test set
     action_classifier: Task containing the model to be trained
@@ -114,6 +113,8 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
     device: device on which you want to test
     num_classes: int, number of classes in the classification problem
     """
+    
+    
     global training_iterations, modalities
 
     data_loader_source = iter(train_loader)
@@ -136,53 +137,36 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
         """
         Retrieve the data from the loaders
         """
-        start_t = datetime.now()
+        # start_t = datetime.now()
         # the following code is necessary as we do not reason in epochs so as soon as the dataloader is finished we need
         # to redefine the iterator
+        
         try:
             source_data, source_label = next(data_loader_source)
         except StopIteration:
             data_loader_source = iter(train_loader)
             source_data, source_label = next(data_loader_source)
-        end_t = datetime.now()
-
+        
+        # end_t = datetime.now()
         # logger.info(f"Iteration {i}/{training_iterations} batch retrieved! Elapsed time = "
         #             f"{(end_t - start_t).total_seconds() // 60} m {(end_t - start_t).total_seconds() % 60} s")
 
         ''' Action recognition'''
         source_label = source_label.to(device)
+        
         data = {}
 
-        if args.models.EMG.model == 'LSTM':
-            # skip aggregation but concatenate features
-            # source_data['RGB'].shape = (32, 1, 5120) containing the 5x1024 clips flattened
-            source_data['EMG'] = source_data['EMG'].view(32, -1).unsqueeze(1)
-        else:
-            # aggregate features along temporal axis with a pooling layer
-            # pooling_layer = torch.nn.MaxPool2d(kernel_size=(5, 1))
-            # source_data['RGB'].shape = (32, 1, 1024)
-            pooling_layer = torch.nn.AvgPool2d(kernel_size=(5, 1))
-            source_data['RGB'] = pooling_layer(source_data['RGB'])
-
-            # aggregate features along the temporal axis with a convolutional layer
-            # source_data['RGB'].shape = (32, 1, 1024)
-            # conv_layer = torch.nn.Conv1d(in_channels=1024, out_channels=1024, kernel_size=5)
-            # data_permuted = source_data['RGB'].permute(0, 2, 1)
-            # conv_output = conv_layer(data_permuted)
-            # conv_output_permuted = conv_output.permute(0, 2, 1)
-            # source_data['RGB'] = conv_output_permuted
-
-        for clip in range(args.train.num_clips):
-            # in case of multi-clip training one clip per time is processed
-            for m in modalities:
-                data[m] = source_data[m][:, clip].to(device)
-
+        if args.modality == "EMG":        
+            data["EMG"] = source_data["EMG"]
             logits, _ = action_classifier.forward(data)
+            
+            print(data)
+            return
+            
             action_classifier.compute_loss(logits, source_label, loss_weight=1)
             action_classifier.backward(retain_graph=False)
             action_classifier.compute_accuracy(logits, source_label)
 
-        # update weights and zero gradients if total_batch samples are passed
         if gradient_accumulation_step:
             logger.info("[%d/%d]\tlast Verb loss: %.4f\tMean verb loss: %.4f\tAcc@1: %.2f%%\tAccMean@1: %.2f%%" %
                         (real_iter, args.train.num_iter, action_classifier.loss.val, action_classifier.loss.avg,
@@ -192,8 +176,6 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
             action_classifier.step()
             action_classifier.zero_grad()
 
-        # every eval_freq "real iteration" (iterations on total_batch) the validation is done, notice we validate and
-        # save the last 9 models
         if gradient_accumulation_step and real_iter % args.train.eval_freq == 0:
             val_metrics = validate(action_classifier, val_loader, device, int(real_iter), num_classes)
 

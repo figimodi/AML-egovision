@@ -73,8 +73,8 @@ class ActionSenseDataset(data.Dataset, ABC):
         else:
             # load the already extracted features to be the RGB samples
             # TODO: load features for all agents (instead of D1 use S00_2, S01_1, ...)
-            target_file = f'saved_features/action_net/{sampling}_{n_frames_per_clip}_D1_{mode}.pkl'
-            self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(target_file)['features'])['features_RGB']
+            target_file = f'saved_features/action_net/{sampling}_{n_frames_per_clip}_S04_1_{mode}.pkl'
+            self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(target_file))["RGB"]
             
             self.model_features['EMG'] = pd.DataFrame([],columns=columns_EMG)
             self.model_features['specto'] = pd.DataFrame([],columns=['specto_file', 'description', 'label'])
@@ -89,7 +89,7 @@ class ActionSenseDataset(data.Dataset, ABC):
                 
                 new_row_EMG = pd.DataFrame(self.samples_dict[agent].loc[index, columns_EMG]).T
                 new_row_specto = pd.DataFrame(self.samples_dict[agent].loc[index, ['specto_file', 'description', 'label']]).T
-                
+            
                 self.model_features['EMG'] = pd.concat([self.model_features['EMG'], new_row_EMG] , ignore_index=True)
                 self.model_features['specto'] = pd.concat([self.model_features['specto'], new_row_specto] , ignore_index=True)
                                                                            
