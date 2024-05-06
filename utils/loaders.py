@@ -5,6 +5,7 @@ import pandas as pd
 from .epic_record import EpicVideoRecord
 from .action_record import ActionRecord
 import torch.utils.data as data
+from torch import from_numpy
 from PIL import Image
 import os
 import os.path
@@ -72,8 +73,9 @@ class ActionSenseDataset(data.Dataset, ABC):
                 self.video_list.append(ActionRecord(video))
         else: 
             # load the already extracted features to be the RGB samples
-            target_file = f'saved_features/action_net/{sampling}_{n_frames_per_clip}_D1_{mode}.pkl'
-            self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(target_file)['features'])['features_RGB']
+            # TODO: load features for all agents (instead of D1 use S00_2, S01_1, ...)
+            target_file = f'saved_features/action_net/{sampling}_{n_frames_per_clip}_S04_1_{mode}.pkl'
+            self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(target_file))["RGB"]
             
             self.model_features['EMG'] = pd.DataFrame([],columns=columns_EMG)
             self.model_features['specto'] = pd.DataFrame([],columns=['specto_file', 'description', 'label'])
@@ -88,7 +90,7 @@ class ActionSenseDataset(data.Dataset, ABC):
                 
                 new_row_EMG = pd.DataFrame(self.samples_dict[agent].loc[index, columns_EMG]).T
                 new_row_specto = pd.DataFrame(self.samples_dict[agent].loc[index, ['specto_file', 'description', 'label']]).T
-                
+            
                 self.model_features['EMG'] = pd.concat([self.model_features['EMG'], new_row_EMG] , ignore_index=True)
                 self.model_features['specto'] = pd.concat([self.model_features['specto'], new_row_specto] , ignore_index=True)
                                                                            
@@ -236,7 +238,18 @@ class ActionSenseDataset(data.Dataset, ABC):
             sample = {}
             for modality in self.modalities:
                 sample[modality] = self.model_features[modality].loc[index, :]
-            return sample, record.label
+                label = sample['EMG'].label
+                if modality == 'EMG':
+                    min_rows = min(sample[modality].myo_left_readings.shape[0], sample[modality].myo_right_readings.shape[0])  # Find the minimum number of rows
+
+                    myo_left_trimmed = sample[modality].myo_left_readings[:min_rows, :]  # Trim arrays to the minimum number of rows
+                    myo_right_trimmed = sample[modality].myo_right_readings[:min_rows, :]
+
+                    sample['EMG'] = from_numpy(np.hstack((myo_left_trimmed, myo_right_trimmed)))
+                    
+                
+            return sample, label
+        # TODO: CHIEDERE A FIL COME GESTIRE STO LABEL
     
     def get(self, modality, record, indices):
         images = list()
@@ -399,7 +412,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
         
         return to_return
 
-    def _get_val_indices(self, record: EpicVideoRecord, modality: 'RGB'):
+    def _get_val_indices(self, record: EpicVideoRecord, modality='RGB'):
         start_frame = 0
         end_frame = record.num_frames[modality]
         

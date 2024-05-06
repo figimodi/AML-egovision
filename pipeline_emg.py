@@ -200,9 +200,16 @@ def augment_partition(file_path: str):
     create_split_augmented(file_path, f'{file_name}_augmented.pkl')
     print(f'{file_path} was correctly augmented')
 
-def augment_dataset():
+def delete_files():
     emg_folder = 'emg/'
     action_folder = 'action-net/'
+    
+    for filename in os.listdir(emg_folder):
+        if os.path.isfile(os.path.join(emg_folder, filename)):
+            if 'specto' in filename.lower():
+                os.remove(os.path.join(emg_folder, filename))
+
+    return
 
     for filename in os.listdir(action_folder):
         if os.path.isfile(os.path.join(action_folder, filename)):
@@ -214,6 +221,9 @@ def augment_dataset():
             if 'augmented' in filename.lower():
                 os.remove(os.path.join(emg_folder, filename))
 
+def augment_dataset():
+    emg_folder = 'emg/'
+    
     partitions = os.listdir(emg_folder)
     for p in partitions:
         augment_partition(os.path.join(emg_folder, p))
@@ -424,8 +434,8 @@ def final_save_spectrogram(specgram_l, specgram_r, name, title=None, ylabel="fre
     plt.savefig(f"../spectograms/{name}")
     plt.close()
 
-def save_spectograms():
-    spectFileName_label_dict = []
+def save_spectograms(skipSectrograms = 0):
+    backup_spectrograms = {'Get/replace items from refrigerator/cabinets/drawers': 'S00_2_0.png', 'Peel a cucumber': 'S00_2_15.png', 'Slice a cucumber': 'S00_2_43.png', 'Peel a potato': 'S00_2_72.png', 'Slice a potato': 'S00_2_104.png', 'Slice bread': 'S00_2_134.png', 'Spread almond butter on a bread slice': 'S00_2_165.png', 'Spread jelly on a bread slice': 'S00_2_180.png', 'Open/close a jar of almond butter': 'S00_2_189.png', 'Pour water from a pitcher into a glass': 'S00_2_201.png', 'Clean a plate with a sponge': 'S00_2_224.png', 'Clean a plate with a towel': 'S00_2_236.png', 'Clean a pan with a sponge': 'S00_2_243.png', 'Clean a pan with a towel': 'S00_2_251.png', 'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_260.png', 'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_282.png', 'Stack on table: 3 each large/small plates, bowls': 'S00_2_304.png', 'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_315.png', 'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_350.png', 'Clear cutting board': 'S02_2_48.png'}
     
     n_fft = 32
     win_length = None
@@ -447,10 +457,11 @@ def save_spectograms():
         
     files_to_read = [s for s in os.listdir('emg/') if "augmented" in s and 'rgb' not in s]
     
-    failed_spectrograms = []
-    backup_spectrograms = {}
-
+    L = 0
+    
     for i, f in enumerate(files_to_read):
+        cur_values = []
+        agent = f[0:5]
         print(f"{i+1}/{len(files_to_read)}: {f}")
         emg_annotations = pd.read_pickle(f"emg/{f}")
         for sample_no in range(len(emg_annotations)):
@@ -463,32 +474,21 @@ def save_spectograms():
                 freq_signal_l = compute_spectrogram(signal_l)
                 freq_signal_r = compute_spectrogram(signal_r)
             except RuntimeError:
-                print(f"Warning: {name}")
-                failed_spectrograms.append((name, label, len(spectFileName_label_dict)))
-                new_row_data = ['XXX', label, len(spectFileName_label_dict)]
-                spectFileName_label_dict.append(new_row_data)
+                new_row_data = [backup_spectrograms[label], label]
+                cur_values.append(new_row_data)
             else:
                 # uncomment this line if you want to save the spectogram in the folder of spectograms
-                # final_save_spectrogram(freq_signal_l, freq_signal_r, name, title=label)
-                new_row_data = [name, label, len(spectFileName_label_dict)]
-                spectFileName_label_dict.append(new_row_data)
-                if label not in backup_spectrograms:
-                    backup_spectrograms[label] = name
-                    
-    for f in failed_spectrograms:
-        print(spectFileName_label_dict[f[2]])
+                if not skipSectrograms:
+                    final_save_spectrogram(freq_signal_l, freq_signal_r, name, title=label)
+                new_row_data = [name, label]
+                cur_values.append(new_row_data)
         
-        assert(spectFileName_label_dict[f[2]][0]=='XXX')
-        assert(spectFileName_label_dict[f[2]][1]==f[1])
-        spectFileName_label_dict[f[2]][0] = backup_spectrograms[label]
-    
-    print(backup_spectrograms)
-
-    spectFileName_label_dict = pd.DataFrame(spectFileName_label_dict, columns=['file','description', 'indice'])
-    spectFileName_label_dict = spectFileName_label_dict.drop(columns=['indice'], axis=1)
-
-    with open('emg/spectFileName_label.pickle', 'wb') as handle:
-        pickle.dump(spectFileName_label_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        cur_df = pd.DataFrame(cur_values, columns=['file','description'])
+        cur_df.to_pickle(f"emg/{agent}_augmented_specto.pkl")
+        
+        L+=len(cur_df)
+            
+    print("FINAL: " + str(L))
         
 def pre_process_emg():
     emg_folder = 'emg/'
@@ -500,62 +500,14 @@ def pre_process_emg():
             data.to_pickle(f'{emg_folder}/{filename.split(".pkl")[0]}_emg.pkl')
             print(f'{emg_folder}{filename} was correctly preprocessed')
 
-def association_per_agent():
-    all_generated_spect = pickle.load(open('emg\spectFileName_label.pickle', 'rb'))
-    
-    all_agents = {}
-    
-    for i, row in all_generated_spect.iterrows():
-        agent = f"{row['file'].split('_')[0]}_{row['file'].split('_')[1]}"
-        if agent not in all_agents:
-            all_agents[agent]=[]
-        all_agents[agent].append([row['file'],row['description']])
-        
-    for agent in all_agents.keys():
-        cur_agent = all_agents.get(agent)
-        df = pd.DataFrame(cur_agent, columns=['file', 'description'])
-        df.to_pickle(f"emg/{agent}_augmented_specto.pkl")        
-
-    os.remove('emg/spectFileName_label.pickle')
-
 def pipeline():
-    # augment_dataset()
-    # pre_process_emg()
-    # emg2rgb()
-    save_spectograms()
-    # association_per_agent()
-    # merge_pickles()
+    delete_files()
+    #augment_dataset()
+    pre_process_emg()
+    emg2rgb()
+    save_spectograms(skipSectrograms=1)
+    merge_pickles()
 
-def test_debug():
-    emg_folder = 'emg/'
-    
-    test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test_augmented.pkl'))
-    train = pd.DataFrame(pd.read_pickle('action-net/ActionNet_train_augmented.pkl'))
-    agents = {}
-    samples = []
-
-    for filename in os.listdir(emg_folder):
-        if os.path.isfile(os.path.join(emg_folder, filename)):
-            if 'specto' in filename.lower():
-                agent = filename[:5]
-                agents[agent] = pd.DataFrame(pd.read_pickle(os.path.join(emg_folder, filename)))
-
-    for i, row in train.iterrows():
-        index = row['index']
-        filename = row['file']
-        agent = filename[:5]
-        sample = agents[agent].loc[index, :]
-        samples.append(sample)
-
-    for i, row in test.iterrows():
-        index = row['index']
-        filename = row['file']
-        agent = filename[:5]
-        sample = agents[agent].loc[index, :]
-        samples.append(sample)
-
-    print(len(samples))
 
 if __name__ == '__main__':
     pipeline()
-    test_debug()
