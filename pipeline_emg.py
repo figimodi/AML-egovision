@@ -203,13 +203,6 @@ def augment_partition(file_path: str):
 def delete_files():
     emg_folder = 'emg/'
     action_folder = 'action-net/'
-    
-    for filename in os.listdir(emg_folder):
-        if os.path.isfile(os.path.join(emg_folder, filename)):
-            if 'specto' in filename.lower():
-                os.remove(os.path.join(emg_folder, filename))
-
-    return
 
     for filename in os.listdir(action_folder):
         if os.path.isfile(os.path.join(action_folder, filename)):
@@ -434,7 +427,7 @@ def final_save_spectrogram(specgram_l, specgram_r, name, title=None, ylabel="fre
     plt.savefig(f"../spectograms/{name}")
     plt.close()
 
-def save_spectograms(skipSectrograms = 0):
+def save_spectograms(skipSectrograms=False):
     backup_spectrograms = {'Get/replace items from refrigerator/cabinets/drawers': 'S00_2_0.png', 'Peel a cucumber': 'S00_2_15.png', 'Slice a cucumber': 'S00_2_43.png', 'Peel a potato': 'S00_2_72.png', 'Slice a potato': 'S00_2_104.png', 'Slice bread': 'S00_2_134.png', 'Spread almond butter on a bread slice': 'S00_2_165.png', 'Spread jelly on a bread slice': 'S00_2_180.png', 'Open/close a jar of almond butter': 'S00_2_189.png', 'Pour water from a pitcher into a glass': 'S00_2_201.png', 'Clean a plate with a sponge': 'S00_2_224.png', 'Clean a plate with a towel': 'S00_2_236.png', 'Clean a pan with a sponge': 'S00_2_243.png', 'Clean a pan with a towel': 'S00_2_251.png', 'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_260.png', 'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_282.png', 'Stack on table: 3 each large/small plates, bowls': 'S00_2_304.png', 'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_315.png', 'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_350.png', 'Clear cutting board': 'S02_2_48.png'}
     
     n_fft = 32
@@ -456,8 +449,6 @@ def save_spectograms(skipSectrograms = 0):
         return freq_signal
         
     files_to_read = [s for s in os.listdir('emg/') if "augmented" in s and 'rgb' not in s]
-    
-    L = 0
     
     for i, f in enumerate(files_to_read):
         cur_values = []
@@ -485,11 +476,7 @@ def save_spectograms(skipSectrograms = 0):
         
         cur_df = pd.DataFrame(cur_values, columns=['file','description'])
         cur_df.to_pickle(f"emg/{agent}_augmented_specto.pkl")
-        
-        L+=len(cur_df)
-            
-    print("FINAL: " + str(L))
-        
+                            
 def pre_process_emg():
     emg_folder = 'emg/'
 
@@ -502,10 +489,10 @@ def pre_process_emg():
 
 def pipeline():
     delete_files()
-    #augment_dataset()
+    augment_dataset()
     pre_process_emg()
     emg2rgb()
-    save_spectograms(skipSectrograms=1)
+    save_spectograms(skipSectrograms=True)
     merge_pickles()
 
 
