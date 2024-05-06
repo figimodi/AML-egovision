@@ -5,6 +5,7 @@ import pandas as pd
 from .epic_record import EpicVideoRecord
 from .action_record import ActionRecord
 import torch.utils.data as data
+from torch import from_numpy
 from PIL import Image
 import os
 import os.path
@@ -237,7 +238,18 @@ class ActionSenseDataset(data.Dataset, ABC):
             sample = {}
             for modality in self.modalities:
                 sample[modality] = self.model_features[modality].loc[index, :]
-            return sample, record.label
+                label = sample['EMG'].label
+                if modality == 'EMG':
+                    min_rows = min(sample[modality].myo_left_readings.shape[0], sample[modality].myo_right_readings.shape[0])  # Find the minimum number of rows
+
+                    myo_left_trimmed = sample[modality].myo_left_readings[:min_rows, :]  # Trim arrays to the minimum number of rows
+                    myo_right_trimmed = sample[modality].myo_right_readings[:min_rows, :]
+
+                    sample['EMG'] = from_numpy(np.hstack((myo_left_trimmed, myo_right_trimmed)))
+                    
+                
+            return sample, label
+        # TODO: CHIEDERE A FIL COME GESTIRE STO LABEL
     
     def get(self, modality, record, indices):
         images = list()
@@ -400,7 +412,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
         
         return to_return
 
-    def _get_val_indices(self, record: EpicVideoRecord, modality: 'RGB'):
+    def _get_val_indices(self, record: EpicVideoRecord, modality='RGB'):
         start_frame = 0
         end_frame = record.num_frames[modality]
         
