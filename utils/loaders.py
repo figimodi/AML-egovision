@@ -68,12 +68,8 @@ class ActionSenseDataset(data.Dataset, ABC):
                 index = row['index']
                 filename = row['file']
                 agent = filename[:5]
-                try:
-                    video = self.samples_dict[agent].loc[index, ['start_frame', 'stop_frame', 'description', 'label']]
-                    self.video_list.append(ActionRecord(video))
-                except:
-                    # TODO: check why some index exceed the lenght of the agnet
-                    print(f'error loading sample with index {index} in agent {agent}')
+                video = self.samples_dict[agent].loc[index, ['start_frame', 'stop_frame', 'description', 'label']]
+                self.video_list.append(ActionRecord(video))
         else: 
             # load the already extracted features to be the RGB samples
             target_file = f'saved_features/action_net/{sampling}_{n_frames_per_clip}_D1_{mode}.pkl'

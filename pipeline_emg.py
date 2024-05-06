@@ -116,10 +116,6 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
         old_index = row['index']
         for new_index in mapping_new_index[old_index]:
             # handle old descriptions
-            if row['description'] in emg_descriptions_conversion_dict.keys():
-                new_description = emg_descriptions_conversion_dict[row['description']]
-                old_test_rows.at[i, 'description'] = new_description
-
             new_row = {
                 'index': int(new_index),
                 'file': new_file_name,
@@ -185,7 +181,7 @@ def augment_partition(file_path: str):
                 'old_index': i,
                 'description': data.loc[i, 'description'],
                 'start': min(left_timestamps_chunks[c][0], right_timestamps_chunks[c][0]),
-                'stop': min(left_timestamps_chunks[c][-1], right_timestamps_chunks[c][-1]),
+                'stop': max(left_timestamps_chunks[c][-1], right_timestamps_chunks[c][-1]),
                 'myo_left_timestamps': left_timestamps_chunks[c],
                 'myo_left_readings': left_readings_chunks[c],
                 'myo_right_timestamps': right_timestamps_chunks[c],
@@ -486,6 +482,8 @@ def save_spectograms():
         assert(spectFileName_label_dict[f[2]][1]==f[1])
         spectFileName_label_dict[f[2]][0] = backup_spectrograms[label]
     
+    print(backup_spectrograms)
+
     spectFileName_label_dict = pd.DataFrame(spectFileName_label_dict, columns=['file','description', 'indice'])
     spectFileName_label_dict = spectFileName_label_dict.drop(columns=['indice'], axis=1)
 
@@ -521,13 +519,43 @@ def association_per_agent():
     os.remove('emg/spectFileName_label.pickle')
 
 def pipeline():
-    augment_dataset()
-    pre_process_emg()
-    emg2rgb()
+    # augment_dataset()
+    # pre_process_emg()
+    # emg2rgb()
     save_spectograms()
-    association_per_agent()
-    merge_pickles()
+    # association_per_agent()
+    # merge_pickles()
 
+def test_debug():
+    emg_folder = 'emg/'
+    
+    test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test_augmented.pkl'))
+    train = pd.DataFrame(pd.read_pickle('action-net/ActionNet_train_augmented.pkl'))
+    agents = {}
+    samples = []
+
+    for filename in os.listdir(emg_folder):
+        if os.path.isfile(os.path.join(emg_folder, filename)):
+            if 'specto' in filename.lower():
+                agent = filename[:5]
+                agents[agent] = pd.DataFrame(pd.read_pickle(os.path.join(emg_folder, filename)))
+
+    for i, row in train.iterrows():
+        index = row['index']
+        filename = row['file']
+        agent = filename[:5]
+        sample = agents[agent].loc[index, :]
+        samples.append(sample)
+
+    for i, row in test.iterrows():
+        index = row['index']
+        filename = row['file']
+        agent = filename[:5]
+        sample = agents[agent].loc[index, :]
+        samples.append(sample)
+
+    print(len(samples))
 
 if __name__ == '__main__':
     pipeline()
+    test_debug()

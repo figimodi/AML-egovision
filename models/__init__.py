@@ -5,3 +5,4 @@ from models.LSTM import LSTM
 from models.RNN import RNN 
 from models.FinalClassifierRGB import FinalClassifierRGB
 from models.FinalClassifierEMG import FinalClassifierEMG
+from models.FinalClassifierCNN import FinalClassifierCNN
