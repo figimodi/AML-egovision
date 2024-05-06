@@ -52,7 +52,7 @@ def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestam
     left_chunk_end = left_chunk_start + 5
     right_chunk_start = right_timestamps[0]
     right_chunk_end = right_chunk_start + 5
-    
+
     # Iterate over each time in both left and right lists
     for left_time, left_reading in zip(left_timestamps, left_readings):
         # Check if the left time is within the current left chunk
@@ -65,7 +65,7 @@ def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestam
             left_reading_chunks.append([left_reading])
             left_chunk_start = left_time
             left_chunk_end = left_chunk_start + 5
-        
+
     # Iterate over each time in both right and right lists
     for right_time, right_reading in zip(right_timestamps, right_readings):
         # Check if the right time is within the current right chunk
@@ -78,7 +78,7 @@ def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestam
             right_reading_chunks.append([right_reading])
             right_chunk_start = right_time
             right_chunk_end = right_chunk_start + 5
-    
+
     return left_chunks, right_chunks, left_reading_chunks, right_reading_chunks
 
 def create_split_augmented(old_file_path: str, new_file_path: str):
@@ -101,7 +101,7 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
     for i, row in data.iterrows():
         old_index = row['old_index']
         new_index = i
-        
+
         if old_index in mapping_new_index:
             mapping_new_index[old_index].append(new_index)
         else:
@@ -114,7 +114,8 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
 
     for i, row in old_test_rows.iterrows():
         old_index = row['index']
-        for new_index in mapping_new_index[old_index]:
+
+        for new_index in mapping_new_index[old_index] if old_index in mapping_new_index.keys() else []:
             # handle old descriptions
             new_row = {
                 'index': int(new_index),
@@ -134,7 +135,7 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
 
     for i, row in old_train_rows.iterrows():
         old_index = row['index']
-        for new_index in mapping_new_index[old_index]:
+        for new_index in mapping_new_index[old_index] if old_index in mapping_new_index.keys() else []:
             # handle old descriptions
             new_row = {
                 'index': int(new_index),
@@ -153,6 +154,27 @@ def create_split_augmented(old_file_path: str, new_file_path: str):
     # Save the DataFrame to a pickle file
     new_test_rows.to_pickle(f'action-net/ActionNet_test_augmented.pkl')
     new_train_rows.to_pickle(f'action-net/ActionNet_train_augmented.pkl')
+
+def padding(sample, size):
+    left_readings = sample['myo_left_readings']
+    right_readings = sample['myo_right_readings']
+
+    readings = {'myo_left_readings': left_readings, 'myo_right_readings': right_readings}
+
+    for key, value in readings.items():
+        original_length = len(value)
+        diff = size - original_length
+
+        zeros_left = diff // 2
+        zeros_right = diff - zeros_left
+
+        average_value = sum(value)/len(value)
+
+        # Pad the list with zeros on both sides
+        padded_list = [average_value] * zeros_left + value + [average_value] * zeros_right
+        sample[key] = padded_list
+
+    return sample
 
 def augment_partition(file_path: str):
     data = pd.DataFrame(pd.read_pickle(file_path))
@@ -176,7 +198,7 @@ def augment_partition(file_path: str):
             # handle old descriptions
             if data.loc[i, 'description'] in emg_descriptions_conversion_dict:
                 data.at[i, 'description'] = emg_descriptions_conversion_dict[data.loc[i, 'description']]
-            
+
             new_row = {
                 'old_index': i,
                 'description': data.loc[i, 'description'],
@@ -188,6 +210,11 @@ def augment_partition(file_path: str):
                 'myo_right_readings': right_readings_chunks[c]
                 }
             new_data.append(new_row)
+
+    max_length_sample = max([max(len(sample['myo_left_readings']), len(sample['myo_right_readings'])) for sample in new_data])
+    threshold = max_length_sample*3/4
+    new_data = list(filter(lambda sample: min(len(sample['myo_left_readings']), len(sample['myo_right_readings'])) > threshold, new_data))
+    new_data = list(map(lambda sample: padding(sample, max_length_sample), new_data))
 
     # Convert the list of dictionaries to a DataFrame
     new_data = pd.DataFrame(new_data)
@@ -214,12 +241,31 @@ def delete_files():
             if 'augmented' in filename.lower():
                 os.remove(os.path.join(emg_folder, filename))
 
+def pad_partitions():
+    emg_folder = 'emg/'
+
+    partitions = os.listdir(emg_folder)
+    files = {}
+    for p in partitions:
+        if 'augmented' in p:
+            files[p] = pd.DataFrame(pd.read_pickle(os.path.join(emg_folder, p)))
+
+    fixed_length = max([len(f.loc[0, 'myo_left_readings']) for f in files.values()])
+
+    for filename, dataframe in files.items():
+        for i in range(len(dataframe)):
+            dataframe.iloc[i, :] = padding(dataframe.iloc[i, :], fixed_length)
+
+        dataframe.to_pickle(os.path.join(emg_folder, filename))
+
 def augment_dataset():
     emg_folder = 'emg/'
-    
-    partitions = os.listdir(emg_folder)
-    for p in partitions:
-        augment_partition(os.path.join(emg_folder, p))
+
+    # partitions = os.listdir(emg_folder)
+    # for p in partitions:
+    #     augment_partition(os.path.join(emg_folder, p))
+
+    pad_partitions()
 
 def emg2rgb():
     emg_folder = 'emg/'
@@ -262,7 +308,7 @@ def remove_t0_frame(value: float, t0: float, frame_rate: float):
     return int(value - (t0*frame_rate) + 1)
 
 def merge_pickles():
-    agents = {} 
+    agents = {}
     emg_folder = 'emg/'
     action_folder = 'action-net/'
 
@@ -300,16 +346,12 @@ def merge_pickles():
 
         # keep only necessary columns
         emg = emg.loc[:, [
-            'start',
-            'stop',
-            'myo_left_timestamps', 
-            'myo_left_readings', 
-            'myo_right_timestamps', 
-            'myo_right_readings', 
-            'description', 
+            'myo_left_readings',
+            'myo_right_readings',
+            'description',
             ]]
         rgb = rgb.loc[:, [
-            'start_frame', 
+            'start_frame',
             'stop_frame',
             'verb_class'
             ]]
@@ -318,7 +360,6 @@ def merge_pickles():
             ]]
 
         # rename columns
-        emg = emg.rename(columns={'start': 'start_timestamp', 'stop': 'stop_timestamp'})
         rgb = rgb.rename(columns={'verb_class': 'label'})
         specto = specto.rename(columns={'file': 'specto_file'})
 
@@ -332,7 +373,7 @@ def merge_pickles():
         def map_new_file(value: str):
             file_name, file_extension = os.path.splitext(value)
             return file_name[:5] + '_augmented.pkl'
-            
+
         test = pd.DataFrame(pd.read_pickle(os.path.join(action_folder, 'ActionNet_test_augmented.pkl')))
         train = pd.DataFrame(pd.read_pickle(os.path.join(action_folder, 'ActionNet_train_augmented.pkl')))
         test['file'] = test['file'].map(map_new_file)
@@ -343,10 +384,10 @@ def merge_pickles():
     for filename in os.listdir(emg_folder):
         if os.path.isfile(os.path.join(emg_folder, filename)) and ('rgb' in filename.lower() or 'emg' in filename.lower() or 'specto' in filename.lower()):
             os.remove(os.path.join(emg_folder, filename))
-            
-""" 
+
+"""
 1. Each channel is rectified by taking the absolute value
-2. Low-pass filter with cutoff frequency 5 Hz is applied 
+2. Low-pass filter with cutoff frequency 5 Hz is applied
 3. All 8 channels from an armband are then jointly normalized and shifted to the range [-1, 1] using the minimum and maximum values across all channels
 4. The absolute value of EMG data across all 8 forearm channels are summed together in each timestep to indicate overall forearm activation
 5. The streams are then smoothed to focus on low-frequency signals on time scales comparable to slicing motions (ACTUALLY REFERS TO THE PREVIOUS APPLIED FILTER ACCORDING TO SLACK)
@@ -361,7 +402,7 @@ def map_to_range_linear(side):
 def z_norm(side):
     mean, std = np.mean(side, axis=0), np.std(side, axis=0)
     to_return = map_to_range_linear((side - mean) / std)
-    
+
     return to_return
 
 def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_order: int = 4):
@@ -371,11 +412,11 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
     length_periods_l, length_periods_r = [len(p) for p in tmp_lefts], [len(p) for p in tmp_rights]
 
     fs = 160                    # sampling frequency
-    nyq = 0.5 * fs              # nyquist 
+    nyq = 0.5 * fs              # nyquist
     normalized_cutoff = cut_frequency / nyq    #normalized cutoff frequency
 
     _, filt_coeffs = signal.butter(filter_order, normalized_cutoff, btype='low')
-    
+
     NUM_CHANNELS = 8
 
     def apply_low_pass_filter(myo_side_readings):
@@ -384,29 +425,29 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
         filtered_data = np.zeros_like(myo_side_readings)
         for i in range(NUM_CHANNELS):
             filtered_data[:, i] = signal.filtfilt(filt_coeffs, [1], myo_side_readings[:, i])
-        
+
         return filtered_data
 
     filtered_data_left, filtered_data_right = apply_low_pass_filter(tmp_lefts), apply_low_pass_filter(tmp_rights)
     filtered_data_left, filtered_data_right = z_norm(filtered_data_left), z_norm(filtered_data_right)
     filtered_data_left, filtered_data_right = map_to_range_linear(filtered_data_left), map_to_range_linear(filtered_data_right)
-    
+
     def put_back_into_dataframe(side_name, preprocessed, lengths):
         start = 0
         for i, period_length in enumerate(lengths):
             aus = np.empty((0, 8))
-            
+
             for l in range(period_length):
                 aus = np.vstack((aus, preprocessed[start + l]))
-            
+
             #SUM EACH CHANNEL FOR EACH PERIOD
             data.at[i, side_name] = aus
-            
+
             start += period_length
-    
+
     put_back_into_dataframe("myo_left_readings", filtered_data_left, length_periods_l)
     put_back_into_dataframe("myo_right_readings", filtered_data_right, length_periods_r)
-    
+
     return data
 
 def final_save_spectrogram(specgram_l, specgram_r, name, title=None, ylabel="freq_bin"):
@@ -420,16 +461,16 @@ def final_save_spectrogram(specgram_l, specgram_r, name, title=None, ylabel="fre
         im = axs[i].imshow(librosa.power_to_db(both_specs[i]), origin="lower", aspect="auto")
         axs[i].get_xaxis().set_visible(False)
         axs[i].get_yaxis().set_visible(False)
-    
+
     axs[i].set_xlabel("Frame number")
     axs[i].get_xaxis().set_visible(True)
-            
+
     plt.savefig(f"../spectograms/{name}")
     plt.close()
 
 def save_spectograms(skipSectrograms=False):
     backup_spectrograms = {'Get/replace items from refrigerator/cabinets/drawers': 'S00_2_0.png', 'Peel a cucumber': 'S00_2_15.png', 'Slice a cucumber': 'S00_2_43.png', 'Peel a potato': 'S00_2_72.png', 'Slice a potato': 'S00_2_104.png', 'Slice bread': 'S00_2_134.png', 'Spread almond butter on a bread slice': 'S00_2_165.png', 'Spread jelly on a bread slice': 'S00_2_180.png', 'Open/close a jar of almond butter': 'S00_2_189.png', 'Pour water from a pitcher into a glass': 'S00_2_201.png', 'Clean a plate with a sponge': 'S00_2_224.png', 'Clean a plate with a towel': 'S00_2_236.png', 'Clean a pan with a sponge': 'S00_2_243.png', 'Clean a pan with a towel': 'S00_2_251.png', 'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_260.png', 'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_282.png', 'Stack on table: 3 each large/small plates, bowls': 'S00_2_304.png', 'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_315.png', 'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_350.png', 'Clear cutting board': 'S02_2_48.png'}
-    
+
     n_fft = 32
     win_length = None
     hop_length = 4
@@ -447,13 +488,12 @@ def save_spectograms(skipSectrograms=False):
     def compute_spectrogram(signal):
         freq_signal = [spectrogram(signal[:, i]) for i in range(8)]
         return freq_signal
-        
+
     files_to_read = [s for s in os.listdir('emg/') if "augmented" in s and 'rgb' not in s]
-    
+
     for i, f in enumerate(files_to_read):
         cur_values = []
         agent = f[0:5]
-        print(f"{i+1}/{len(files_to_read)}: {f}")
         emg_annotations = pd.read_pickle(f"emg/{f}")
         for sample_no in range(len(emg_annotations)):
             signal_l = torch.from_numpy(emg_annotations.iloc[sample_no].myo_left_readings).float()
@@ -473,10 +513,12 @@ def save_spectograms(skipSectrograms=False):
                     final_save_spectrogram(freq_signal_l, freq_signal_r, name, title=label)
                 new_row_data = [name, label]
                 cur_values.append(new_row_data)
-        
+
         cur_df = pd.DataFrame(cur_values, columns=['file','description'])
         cur_df.to_pickle(f"emg/{agent}_augmented_specto.pkl")
-                            
+
+        print(f"emg/{agent}_augmented_specto.pkl correctly generated")
+
 def pre_process_emg():
     emg_folder = 'emg/'
 
@@ -494,7 +536,6 @@ def pipeline():
     emg2rgb()
     save_spectograms(skipSectrograms=True)
     merge_pickles()
-
 
 if __name__ == '__main__':
     pipeline()

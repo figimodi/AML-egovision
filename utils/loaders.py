@@ -238,18 +238,13 @@ class ActionSenseDataset(data.Dataset, ABC):
             sample = {}
             for modality in self.modalities:
                 sample[modality] = self.model_features[modality].loc[index, :]
-                label = sample['EMG'].label
+                label = sample.label
                 if modality == 'EMG':
-                    min_rows = min(sample[modality].myo_left_readings.shape[0], sample[modality].myo_right_readings.shape[0])  # Find the minimum number of rows
-
-                    myo_left_trimmed = sample[modality].myo_left_readings[:min_rows, :]  # Trim arrays to the minimum number of rows
-                    myo_right_trimmed = sample[modality].myo_right_readings[:min_rows, :]
-
-                    sample['EMG'] = from_numpy(np.hstack((myo_left_trimmed, myo_right_trimmed)))
-                    
+                    myo_left = sample[modality].myo_left_readings
+                    myo_right = sample[modality].myo_right_readings
+                    sample['EMG'] = from_numpy(np.hstack((myo_left, myo_right)))
                 
             return sample, label
-        # TODO: CHIEDERE A FIL COME GESTIRE STO LABEL
     
     def get(self, modality, record, indices):
         images = list()
