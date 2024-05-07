@@ -271,7 +271,7 @@ def validate(model, val_loader, device, it, num_classes):
                     'class_accuracies': np.array(class_accuracies)}
 
     with open(os.path.join(args.log_dir, f'val_precision_{modalities[0]}.txt'), 'a+') as f:
-        f.write("[%d/%d]\tAcc@top1: %.2f%%\n" % (it, args.train.num_iter, test_results['top1']))
+        f.write("[%d/%d]\tAcc@top1: %.2f%%\n" % (it, args_mod.train.num_iter, test_results['top1']))
 
     return test_results
 
