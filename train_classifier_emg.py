@@ -263,10 +263,7 @@ def validate(model, val_loader, device, it, num_classes):
         class_accuracies = [(x / y) * 100 for x, y in zip(model.accuracy.correct, model.accuracy.total) if y>0]
         logger.info('Final accuracy: top1 = %.2f%%\ttop5 = %.2f%%' % (model.accuracy.avg[1], model.accuracy.avg[5]))
         for i_class, class_acc in enumerate(class_accuracies):
-            logger.info('Class %d = [%d/%d] = %.2f%%' % (i_class,
-                                                         int(model.accuracy.correct[i_class]),
-                                                         int(model.accuracy.total[i_class]),
-                                                         class_acc))
+            logger.info('Class %d = [%d/%d] = %.2f%%' % (i_class, int(model.accuracy.correct[i_class]), int(model.accuracy.total[i_class]), class_acc))
 
     logger.info('Accuracy by averaging class accuracies (same weight for each class): {}%'
                 .format(np.array(class_accuracies).mean(axis=0)))
