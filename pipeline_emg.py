@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pickle
+import math
 
 import torch
 import torchaudio
@@ -529,13 +530,92 @@ def pre_process_emg():
             data.to_pickle(f'{emg_folder}/{filename.split(".pkl")[0]}_emg.pkl')
             print(f'{emg_folder}{filename} was correctly preprocessed')
 
+def balance_train_test_split(threshold_proportion=0.05):
+    split_train = pd.DataFrame(pd.read_pickle('action-net/ActionNet_train_augmented.pkl'))
+    split_test = pd.DataFrame(pd.read_pickle('action-net/ActionNet_test_augmented.pkl'))
+    samples = {}
+    dataset_train = []
+    dataset_test = []
+    n_samples_x_class = {'train': np.zeros(20), 'test': np.zeros(20)}
+
+    for filename in os.listdir('emg/'):
+        if 'augmented' in filename:
+            agent = filename[:5]
+            samples_agent = pd.DataFrame(pd.read_pickle(os.path.join('emg/', filename)))
+            samples[agent] = samples_agent
+
+    for i, row in split_train.iterrows():
+        index = row['index']
+        filename = row['file']
+        agent = filename[:5]
+        sample = samples[agent].loc[index, :]
+        sample = sample.copy()
+        sample['from_file'] = filename
+        dataset_train.append(sample)
+
+    dataset_train = pd.DataFrame(dataset_train)
+
+    num_classes = 20
+    for c in range(num_classes):
+        tot_samples_c = len(dataset_train[dataset_train['label'] == c])
+        n_samples_x_class['train'][c] = tot_samples_c
+
+    for i, row in split_test.iterrows():
+        index = row['index']
+        filename = row['file']
+        agent = filename[:5]
+        sample = samples[agent].loc[index, :]
+        sample = sample.copy()
+        sample['from_file'] = filename
+        dataset_test.append(sample)
+
+    dataset_test = pd.DataFrame(dataset_test)
+
+    for c in range(num_classes):
+        tot_samples_c = len(dataset_test[dataset_test['label'] == c])
+        n_samples_x_class['test'][c] = tot_samples_c
+
+    # print(f'proportions before the balance:')    
+    # for c in range(num_classes):
+    #     p = n_samples_x_class['test'][c] / n_samples_x_class['train'][c]
+    #     print(f'class {c}: {p}')
+
+    for c in range(num_classes):
+        candidates_to_move = dataset_train[dataset_train['label'] == c]       
+        if n_samples_x_class['test'][c] / n_samples_x_class['train'][c] <= threshold_proportion:
+            print(f'balancing class {c}...')
+            n_to_move = math.ceil(threshold_proportion*n_samples_x_class['train'][c] - n_samples_x_class['test'][c])
+            to_move = candidates_to_move.head(n_to_move)
+
+            print(f'moving {n_to_move} samples from tarin to test:')
+            print(to_move)
+
+            n_samples_x_class['train'][c] -= n_to_move
+            n_samples_x_class['test'][c] += n_to_move
+
+            for i, row in to_move.iterrows():
+                row_to_move = split_train[(split_train['file']==row['from_file']) & (split_train['index']==i)]
+                split_train = split_train.drop(row_to_move.index)
+                split_test = pd.concat([split_test, row_to_move], ignore_index=True)
+
+            split_train.to_pickle(f"action-net/ActionNet_train_augmented.pkl")
+            split_test.to_pickle(f"action-net/ActionNet_test_augmented.pkl")
+
+    # print(f'proportions after the balance:')    
+    # for c in range(num_classes):
+    #     p = n_samples_x_class['test'][c] / n_samples_x_class['train'][c]
+    #     print(f'class {c}: {p}')
+
+    print('split files were correctly balanced')
+
 def pipeline():
-    delete_files()
-    augment_dataset()
-    pre_process_emg()
-    emg2rgb()
-    save_spectograms(skipSectrograms=True)
-    merge_pickles()
+    # delete_files()
+    # augment_dataset()
+    # pre_process_emg()
+    # emg2rgb()
+    # save_spectograms(skipSectrograms=True)
+    # merge_pickles()
+    balance_train_test_split()
 
 if __name__ == '__main__':
     pipeline()
