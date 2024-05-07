@@ -261,9 +261,9 @@ def pad_partitions():
 def augment_dataset():
     emg_folder = 'emg/'
 
-    # partitions = os.listdir(emg_folder)
-    # for p in partitions:
-    #     augment_partition(os.path.join(emg_folder, p))
+    partitions = os.listdir(emg_folder)
+    for p in partitions:
+        augment_partition(os.path.join(emg_folder, p))
 
     pad_partitions()
 

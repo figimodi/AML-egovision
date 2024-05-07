@@ -1,5 +1,4 @@
 from torch import nn
-import torch
 
 class FinalClassifierEMG(nn.Module):
     def __init__(self, input_size=16, hidden_size1=5, hidden_size2=50, dropout=0.2, num_classes=20):
@@ -12,12 +11,10 @@ class FinalClassifierEMG(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
         self.dense = nn.Linear(hidden_size2, num_classes)
 
-        # TODO: change architecture of the network
-
     def forward(self, x):
         out, _ = self.lstm1(x)
         out, _ = self.lstm2(out)
         out = self.dropout(out[:, -1, :])
         out = self.dense(out)
         
-        return out
+        return out, {}

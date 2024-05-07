@@ -13,8 +13,6 @@ from utils.logger import logger
 
 import numpy as np
 
-columns_EMG = ['start_timestamp', 'stop_timestamp', 'myo_left_timestamps', 'myo_left_readings', 'myo_right_timestamps', 'myo_right_readings', 'description', 'label']
-
 emg_descriptions_to_labels = [
     'Clean a pan with a sponge',
     'Clean a pan with a towel',
@@ -77,7 +75,7 @@ class ActionSenseDataset(data.Dataset, ABC):
             target_file = f'saved_features/action_net/{sampling}_{n_frames_per_clip}_S04_1_{mode}.pkl'
             self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(target_file))["RGB"]
             
-            self.model_features['EMG'] = pd.DataFrame([],columns=columns_EMG)
+            self.model_features['EMG'] = pd.DataFrame([],columns=['myo_left_readings', 'myo_right_readings', 'description', 'label'])
             self.model_features['specto'] = pd.DataFrame([],columns=['specto_file', 'description', 'label'])
             
             # load into EMG mode the samples of the corresponding split
@@ -88,7 +86,7 @@ class ActionSenseDataset(data.Dataset, ABC):
                 
                 agent = filename[:5]
                 
-                new_row_EMG = pd.DataFrame(self.samples_dict[agent].loc[index, columns_EMG]).T
+                new_row_EMG = pd.DataFrame(self.samples_dict[agent].loc[index, ['myo_left_readings', 'myo_right_readings', 'description', 'label']]).T
                 new_row_specto = pd.DataFrame(self.samples_dict[agent].loc[index, ['specto_file', 'description', 'label']]).T
             
                 self.model_features['EMG'] = pd.concat([self.model_features['EMG'], new_row_EMG] , ignore_index=True)
@@ -238,7 +236,7 @@ class ActionSenseDataset(data.Dataset, ABC):
             sample = {}
             for modality in self.modalities:
                 sample[modality] = self.model_features[modality].loc[index, :]
-                label = sample.label
+                label = sample[modality].label
                 if modality == 'EMG':
                     myo_left = sample[modality].myo_left_readings
                     myo_right = sample[modality].myo_right_readings

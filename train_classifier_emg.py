@@ -23,6 +23,8 @@ modalities=[args.modality]
 np.random.seed(13696641)
 torch.manual_seed(13696641)
 
+torch.set_default_dtype(torch.float64)
+
 def init_operations():
     """
     parse all the arguments, generate the logger, check gpus to be used and wandb
@@ -60,7 +62,7 @@ def main():
         logger.info('Model: {}\tModality: {}'.format(args.modalities[m].models[m].name, m))
         # notice that here, the first parameter passed is the input dimension
         # In our case it represents the feature dimensionality which is equivalent to 1024 for I3D
-        models[m] = getattr(model_list, args.modalities[m].models[m].name)(num_classes)
+        models[m] = getattr(model_list, args.modalities[m].models[m].name)()
 
     # the models are wrapped into the ActionRecognition task which manages all the training steps
     action_classifier = tasks.ActionRecognition("action-classifier", models, args.batch_size,
@@ -177,18 +179,14 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
                 # conv_output_permuted = conv_output.permute(0, 2, 1)
                 # source_data['RGB'] = conv_output_permuted+
             
-        if args.modality == "EMG":
-            source_data['EMG'] = source_data['EMG'].view(32, -1).unsqueeze(1)
-
-        for clip in range(args_mod.train.num_clips):
-            # in case of multi-clip training one clip per time is processed
-            for m in modalities:
-                data[m] = source_data[m][:, clip].to(device)
-
-            logits, _ = action_classifier.forward(data)
-            action_classifier.compute_loss(logits, source_label, loss_weight=1)
-            action_classifier.backward(retain_graph=False)
-            action_classifier.compute_accuracy(logits, source_label)
+        for m in modalities:
+            if m == 'EMG':
+                data[m] = source_data[m].to(device)
+            
+        logits, _ = action_classifier.forward(data)
+        action_classifier.compute_loss(logits, source_label, loss_weight=1)
+        action_classifier.backward(retain_graph=False)
+        action_classifier.compute_accuracy(logits, source_label)
 
         if gradient_accumulation_step:
             logger.info("[%d/%d]\tlast Verb loss: %.4f\tMean verb loss: %.4f\tAcc@1: %.2f%%\tAccMean@1: %.2f%%" %
