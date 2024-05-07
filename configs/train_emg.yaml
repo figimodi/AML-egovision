@@ -18,8 +18,8 @@ modalities:
       eval_freq: 50 # evaluation frequency
 
     test:
-
-    dataset:
+      num_clips: 1
+    dataset: 
       annotations_path: train_val # path for the annotations data
       shift: nono # shifts of the dataset
       workers: 4 # number of workers for the dataloader

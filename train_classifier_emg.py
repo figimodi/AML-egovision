@@ -232,7 +232,7 @@ def validate(model, val_loader, device, it, num_classes):
         for i_val, (data, label) in enumerate(val_loader):
             label = label.to(device)
 
-            if args.models.EMG.model == 'LSTM':
+            if modalities[0]=='EMG' and len(modalities)==1:
                 clips = {}
                 for m in modalities:
                     clips[m] = data[m].to(device)
