@@ -160,28 +160,28 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
         data = {}
 
         if args.modality == 'RGB':
-            if args.models.RGB.model == 'LSTM' or args.models.RGB.model == 'RNN':
+            if args_mod.models.RGB.name == 'LSTM' or args_mod.models.RGB.name == 'RNN':
                 # skip aggregation but concatenate features
-                # source_data['RGB'].shape = (32, 1, 5120) containing the 5x1024 clips flattened
-                source_data['RGB'] = source_data['RGB'].view(32, -1).unsqueeze(1)
+                # source_data.shape = (32, 1, 5120) containing the 5x1024 clips flattened
+                source_data = source_data['RGB'].view(32, -1).unsqueeze(1)
+                source_data = source_data.to(torch.double)
             else:
                 # aggregate features along temporal axis with a pooling layer
                 # pooling_layer = torch.nn.MaxPool2d(kernel_size=(5, 1))
-                # source_data['RGB'].shape = (32, 1, 1024)
+                # source_data.shape = (32, 1, 1024)
                 pooling_layer = torch.nn.AvgPool2d(kernel_size=(5, 1))
-                source_data['RGB'] = pooling_layer(source_data['RGB'])
+                source_data = pooling_layer(source_data)
 
                 # aggregate features along the temporal axis with a convolutional layer
-                # source_data['RGB'].shape = (32, 1, 1024)
+                # source_data.shape = (32, 1, 1024)
                 # conv_layer = torch.nn.Conv1d(in_channels=1024, out_channels=1024, kernel_size=5)
-                # data_permuted = source_data['RGB'].permute(0, 2, 1)
+                # data_permuted = source_data.permute(0, 2, 1)
                 # conv_output = conv_layer(data_permuted)
                 # conv_output_permuted = conv_output.permute(0, 2, 1)
-                # source_data['RGB'] = conv_output_permuted+
+                # source_data = conv_output_permuted+
             
         for m in modalities:
-            if m == 'EMG':
-                data[m] = source_data[m].to(device)
+            data[m] = source_data.to(device)
             
         logits, _ = action_classifier.forward(data)
         action_classifier.compute_loss(logits, source_label, loss_weight=1)
@@ -221,7 +221,7 @@ def validate(model, val_loader, device, it, num_classes):
     it: int, iteration among the training num_iter at which the model is tested
     num_classes: int, number of classes in the classification problem
     """
-    global modalities
+    global modalities, args_mod
 
     model.reset_acc()
     model.train(False)
@@ -232,7 +232,7 @@ def validate(model, val_loader, device, it, num_classes):
         for i_val, (data, label) in enumerate(val_loader):
             label = label.to(device)
 
-            if modalities[0]=='EMG' and len(modalities)==1:
+            if modalities[0] == 'EMG' and len(modalities)==1:
                 clips = {}
                 for m in modalities:
                     clips[m] = data[m].to(device)
@@ -241,10 +241,10 @@ def validate(model, val_loader, device, it, num_classes):
             else:
                 for m in modalities:
                     batch = data[m].shape[0]
-                    logits[m] = torch.zeros((args.test.num_clips, batch, num_classes)).to(device)
+                    logits[m] = torch.zeros((args_mod.test.num_clips, batch, num_classes)).to(device)
 
                 clip = {}
-                for i_c in range(args.test.num_clips):
+                for i_c in range(args_mod.test.num_clips):
                     for m in modalities:
                         clip[m] = data[m][:, i_c].to(device)
 

@@ -3,7 +3,7 @@ import torch
 
 
 class LSTM(nn.Module):
-    def __init__(self, num_classes, input_size=1024, hidden_size=512):
+    def __init__(self, num_classes=20, input_size=1024, hidden_size=512):
         super().__init__()
 
         self.lstm = nn.LSTM(input_size, hidden_size, 1, batch_first=True)

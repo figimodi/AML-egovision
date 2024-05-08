@@ -60,37 +60,30 @@ class ActionSenseDataset(data.Dataset, ABC):
                 samples = pd.DataFrame(pd.read_pickle(os.path.join('emg/', filename)))
                 agent = filename[:5]
                 self.samples_dict[agent] = samples
-
-        if self.extract_features:
-            # take the split file and load into video_list all the train/validation samples (by reading the split file)
-            for i, row in self.split_file.iterrows():
-                index = row['index']
-                filename = row['file']
-                agent = filename[:5]
-                video = self.samples_dict[agent].loc[index, ['start_frame', 'stop_frame', 'description', 'label']]
-                self.video_list.append(ActionRecord(video))
-        else: 
+     
+        if not self.extract_features:
             # load the already extracted features to be the RGB samples
-            # TODO: load features for all agents (instead of D1 use S00_2, S01_1, ...)
             target_file = f'saved_features/action_net/{sampling}_{n_frames_per_clip}_S04_1_{mode}.pkl'
             self.model_features['RGB'] = pd.DataFrame(pd.read_pickle(target_file))["RGB"]
+        
+        self.model_features['EMG'] = pd.DataFrame([],columns=['myo_left_readings', 'myo_right_readings', 'description', 'label'])
+        self.model_features['specto'] = pd.DataFrame([],columns=['specto_file', 'description', 'label'])
+
+        # load into EMG mode the samples of the corresponding split
+        # load into specto mode the samples of the corresponding split
+        for i, row in self.split_file.iterrows():
+            index = row['index']
+            filename = row['file']
+            agent = filename[:5]
             
-            self.model_features['EMG'] = pd.DataFrame([],columns=['myo_left_readings', 'myo_right_readings', 'description', 'label'])
-            self.model_features['specto'] = pd.DataFrame([],columns=['specto_file', 'description', 'label'])
-            
-            # load into EMG mode the samples of the corresponding split
-            # load into specto mode the samples of the corresponding split
-            for i, row in self.split_file.iterrows():
-                index = row['index']
-                filename = row['file']
-                
-                agent = filename[:5]
-                
-                new_row_EMG = pd.DataFrame(self.samples_dict[agent].loc[index, ['myo_left_readings', 'myo_right_readings', 'description', 'label']]).T
-                new_row_specto = pd.DataFrame(self.samples_dict[agent].loc[index, ['specto_file', 'description', 'label']]).T
-            
-                self.model_features['EMG'] = pd.concat([self.model_features['EMG'], new_row_EMG] , ignore_index=True)
-                self.model_features['specto'] = pd.concat([self.model_features['specto'], new_row_specto] , ignore_index=True)
+            video = self.samples_dict[agent].loc[index, ['start_frame', 'stop_frame', 'description', 'label']]
+            self.video_list.append(ActionRecord(video))
+
+            new_row_EMG = pd.DataFrame(self.samples_dict[agent].loc[index, ['myo_left_readings', 'myo_right_readings', 'description', 'label']]).T
+            new_row_specto = pd.DataFrame(self.samples_dict[agent].loc[index, ['specto_file', 'description', 'label']]).T
+        
+            self.model_features['EMG'] = pd.concat([self.model_features['EMG'], new_row_EMG] , ignore_index=True)
+            self.model_features['specto'] = pd.concat([self.model_features['specto'], new_row_specto] , ignore_index=True)
                                                                            
     def _get_train_indices(self, record: ActionRecord):
         start_frame = 0
@@ -235,8 +228,8 @@ class ActionSenseDataset(data.Dataset, ABC):
         else:
             sample = {}
             for modality in self.modalities:
-                sample[modality] = self.model_features[modality].loc[index, :]
-                label = sample[modality].label
+                sample[modality] = self.model_features[modality].loc[index, :] if modality != 'RGB' else self.model_features[modality][index]
+                label = sample[modality].label if modality != 'RGB' else self.video_list[index].label
                 if modality == 'EMG':
                     myo_left = sample[modality].myo_left_readings
                     myo_right = sample[modality].myo_right_readings

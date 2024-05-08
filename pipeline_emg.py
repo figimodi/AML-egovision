@@ -592,7 +592,6 @@ def balance_train_test_split(threshold_proportion=0.05):
     print('split files were correctly balanced')
 
 def pipeline():
-    
     delete_files()
     augment_dataset()
     pre_process_emg()
