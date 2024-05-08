@@ -228,8 +228,17 @@ class ActionSenseDataset(data.Dataset, ABC):
         else:
             sample = {}
             for modality in self.modalities:
-                sample[modality] = self.model_features[modality].loc[index, :] if modality != 'RGB' else self.model_features[modality][index]
-                label = sample[modality].label if modality != 'RGB' else self.video_list[index].label
+                if modality == 'RGB':
+                    sample[modality] = self.model_features[modality][index]
+                    label = self.video_list[index].label
+                elif modality == 'EMG':
+                    sample[modality] = self.model_features[modality].loc[index, :]
+                    label = sample[modality].label
+                elif == 'specto':
+                    sample_appo = self.model_features[modality].loc[index, :]
+                    # sample_appo['file'] c'è il path
+                    label = sample[modality].label
+
                 if modality == 'EMG':
                     myo_left = sample[modality].myo_left_readings
                     myo_right = sample[modality].myo_right_readings
