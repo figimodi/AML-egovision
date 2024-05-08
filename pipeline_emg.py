@@ -393,61 +393,44 @@ def merge_pickles():
 4. The absolute value of EMG data across all 8 forearm channels are summed together in each timestep to indicate overall forearm activation
 5. The streams are then smoothed to focus on low-frequency signals on time scales comparable to slicing motions (ACTUALLY REFERS TO THE PREVIOUS APPLIED FILTER ACCORDING TO SLACK)
 """
-def map_to_range_linear(side):
-    mapped_side = np.zeros_like(side)
-    for col in range(side.shape[1]):
-        col_min, col_max = np.min(side[:, col]), np.max(side[:, col])
-        mapped_side[:, col] = (side[:, col] - col_min) / (col_max - col_min) * (1 - (-1)) + (-1)
-    return mapped_side
 
-def z_norm(side):
-    mean, std = np.mean(side, axis=0), np.std(side, axis=0)
-    to_return = map_to_range_linear((side - mean) / std)
+def design_lowpass_filter(cutoff_freq, sample_rate, filter_order=1):
+    nyquist_freq = sample_rate * 0.5  # Nyquist frequency
+    normalized_cutoff = cutoff_freq / nyquist_freq
+    b, a = signal.butter(filter_order, normalized_cutoff, btype='lowpass')  # Butterworth filter
+    return b, a
 
-    return to_return
+def scale_and_normalize(data):
+    data = np.array(data)
+    data = (data - data.min()) / (data.max() - data.min()) * 2 - 1  
+    data = (data - data.mean()) / data.std()
+    return data
 
-def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_order: int = 4):
+def filter_signal(data, b, a):
+    return signal.filtfilt(b, a, data)
+
+def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_order: int = 2):
     data = pd.DataFrame(pd.read_pickle(file_path))
-
-    tmp_lefts, tmp_rights = data["myo_left_readings"], data["myo_right_readings"]
-    length_periods_l, length_periods_r = [len(p) for p in tmp_lefts], [len(p) for p in tmp_rights]
-
+    
     fs = 160                    # sampling frequency
-    nyq = 0.5 * fs              # nyquist
-    normalized_cutoff = cut_frequency / nyq    #normalized cutoff frequency
-
-    _, filt_coeffs = signal.butter(filter_order, normalized_cutoff, btype='low')
-
-    NUM_CHANNELS = 8
-
-    def apply_low_pass_filter(myo_side_readings):
-        myo_side_readings = np.array([channels_values for period in myo_side_readings for channels_values in period])
-        myo_side_readings = np.absolute(myo_side_readings)
-        filtered_data = np.zeros_like(myo_side_readings)
-        for i in range(NUM_CHANNELS):
-            filtered_data[:, i] = signal.filtfilt(filt_coeffs, [1], myo_side_readings[:, i])
-
-        return filtered_data
-
-    filtered_data_left, filtered_data_right = apply_low_pass_filter(tmp_lefts), apply_low_pass_filter(tmp_rights)
-    filtered_data_left, filtered_data_right = z_norm(filtered_data_left), z_norm(filtered_data_right)
-    filtered_data_left, filtered_data_right = map_to_range_linear(filtered_data_left), map_to_range_linear(filtered_data_right)
-
-    def put_back_into_dataframe(side_name, preprocessed, lengths):
+    filter_b, filter_a = design_lowpass_filter(cut_frequency, fs, filter_order)
+    
+    for side in ['myo_left_readings', 'myo_right_readings']:
+        np_side_data = np.empty((0,8))
+        lengths = []
+        for sample in data[side]:
+            np_sample = np.array(sample)
+            lengths.append(np_sample.shape[0])
+            np_side_data = np.vstack((np_side_data, np_sample))
+        
+        for j in range(8):
+            np_side_data[:,j] = filter_signal(np_side_data[:,j], filter_b, filter_a)
+            np_side_data[:,j] = scale_and_normalize(np_side_data[:,j])
+            
         start = 0
-        for i, period_length in enumerate(lengths):
-            aus = np.empty((0, 8))
-
-            for l in range(period_length):
-                aus = np.vstack((aus, preprocessed[start + l]))
-
-            #SUM EACH CHANNEL FOR EACH PERIOD
-            data.at[i, side_name] = aus
-
-            start += period_length
-
-    put_back_into_dataframe("myo_left_readings", filtered_data_left, length_periods_l)
-    put_back_into_dataframe("myo_right_readings", filtered_data_right, length_periods_r)
+        for i, l in enumerate(lengths):
+            data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
+            start+=l
 
     return data
 
@@ -497,8 +480,8 @@ def save_spectograms(skipSectrograms=False):
         agent = f[0:5]
         emg_annotations = pd.read_pickle(f"emg/{f}")
         for sample_no in range(len(emg_annotations)):
-            signal_l = torch.from_numpy(emg_annotations.iloc[sample_no].myo_left_readings).float()
-            signal_r = torch.from_numpy(emg_annotations.iloc[sample_no].myo_right_readings).float()
+            signal_l = torch.Tensor(emg_annotations.iloc[sample_no].myo_left_readings)
+            signal_r = torch.Tensor(emg_annotations.iloc[sample_no].myo_right_readings)
             label = emg_annotations.iloc[sample_no].description
             file_name_prefix = f.split("_augmented")[0]
             name = f"{file_name_prefix}_{sample_no}.png"
@@ -609,12 +592,13 @@ def balance_train_test_split(threshold_proportion=0.05):
     print('split files were correctly balanced')
 
 def pipeline():
-    # delete_files()
-    # augment_dataset()
-    # pre_process_emg()
-    # emg2rgb()
-    # save_spectograms(skipSectrograms=True)
-    # merge_pickles()
+    
+    delete_files()
+    augment_dataset()
+    pre_process_emg()
+    emg2rgb()
+    save_spectograms(skipSectrograms=True)
+    merge_pickles()
     balance_train_test_split()
 
 if __name__ == '__main__':
