@@ -10,6 +10,7 @@ from PIL import Image
 import os
 import os.path
 from utils.logger import logger
+from torchvision import transforms
 
 import numpy as np
 
@@ -234,11 +235,12 @@ class ActionSenseDataset(data.Dataset, ABC):
                 elif modality == 'EMG':
                     sample[modality] = self.model_features[modality].loc[index, :]
                     label = sample[modality].label
-                elif == 'specto':
+                elif modality == 'specto':
                     sample_appo = self.model_features[modality].loc[index, :]
-                    # sample_appo['file'] c'è il path
-                    label = sample[modality].label
-
+                    s = Image.open(os.path.join('..','spectograms',sample_appo['specto_file'])).convert('RGB')
+                    trans = transforms.Compose([transforms.ToTensor()])
+                    sample[modality] = trans(s)
+                    label = sample_appo.label
                 if modality == 'EMG':
                     myo_left = sample[modality].myo_left_readings
                     myo_right = sample[modality].myo_right_readings

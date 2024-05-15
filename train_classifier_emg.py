@@ -181,7 +181,7 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
                 # source_data = conv_output_permuted+
             
         for m in modalities:
-            data[m] = source_data.to(device)
+            data[m] = source_data[m].to(device)
             
         logits, _ = action_classifier.forward(data)
         action_classifier.compute_loss(logits, source_label, loss_weight=1)
