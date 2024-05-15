@@ -72,4 +72,31 @@ modalities:
         sgd_momentum: 0.9
         weight_decay: 1e-7
 
-  SPECTRO:
+  specto:
+    train:
+      num_iter: 500 # number of training iterations with total_batch size
+      lr_steps: 300 # steps before reducing learning rate
+      eval_freq: 25 # evaluation frequency
+      num_clips: 1
+
+    test:
+      num_clips: 1
+    dataset: 
+      annotations_path: train_val # path for the annotations data
+      shift: nono # shifts of the dataset
+      workers: 0 # number of workers for the dataloader
+      stride: 2 # stride in case of dense sampling
+      resolution: 224 # input resolution to the model
+      data_path: ../spectograms # path to specto data
+      tmpl: "BOH" # format of RGB filenames
+      features_name: test_feat_action
+
+    models:
+      specto:
+        name: "FinalClassifierCNN"
+        normalize: False
+        kwargs: {}
+        lr_steps: 300
+        lr: 0.01
+        sgd_momentum: 0.9
+        weight_decay: 1e-7
