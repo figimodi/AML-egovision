@@ -1,5 +1,5 @@
 import pandas as pd
-from scipy import signal
+from scipy import signal, interpolate
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 import numpy as np
@@ -222,6 +222,7 @@ def augment_partition(file_path: str):
 
     # Save the DataFrame to a pickle file
     file_name, file_extension = os.path.splitext(file_path)
+    file_name = file_name.replace('_resample', '')
     new_data.to_pickle(f'{file_name}_augmented.pkl')
 
     # Update the split files with the new augmented dataset
@@ -264,7 +265,8 @@ def augment_dataset():
 
     partitions = os.listdir(emg_folder)
     for p in partitions:
-        augment_partition(os.path.join(emg_folder, p))
+        if 'resample' in p:
+            augment_partition(os.path.join(emg_folder, p))
 
     pad_partitions()
 
@@ -591,8 +593,52 @@ def balance_train_test_split(threshold_proportion=0.05):
 
     print('split files were correctly balanced')
 
+def resample(sampling_rate:float=60.):
+    emg_folder = 'emg/'
+    partitions = os.listdir(emg_folder)
+
+    files = {}
+    for p in partitions:
+        files[p] = pd.DataFrame(pd.read_pickle(os.path.join(emg_folder, p)))
+
+    sampling_interval = 1/sampling_rate
+
+    for filename, dataframe in files.items():
+        dataframe = dataframe[dataframe['description'] != 'calibration']
+        timestamps_sx = np.concatenate(dataframe['myo_left_timestamps'].values, axis=-1)
+        timestamps_dx = np.concatenate(dataframe['myo_right_timestamps'].values, axis=-1)
+        readings_sx = np.concatenate(dataframe['myo_left_readings'].values, axis=0).transpose(1, 0)
+        readings_dx = np.concatenate(dataframe['myo_right_readings'].values, axis=0).transpose(1, 0)
+
+        fn_interpolate_sx = [interpolate.interp1d(
+            timestamps_sx,       
+            readings_sx[ix],         
+            axis=0,           
+            kind='linear',    
+            fill_value='extrapolate' 
+        ) for ix in range(8)]
+        fn_interpolate_dx = [interpolate.interp1d(
+            timestamps_dx,       
+            readings_dx[ix],         
+            axis=0,           
+            kind='linear',    
+            fill_value='extrapolate' 
+        ) for ix in range(8)]
+
+        for i, row in dataframe.iterrows():
+            new_timestamps_sx = np.arange(row['myo_left_timestamps'][0], row['myo_left_timestamps'][-1], sampling_interval)
+            new_timestamps_dx = np.arange(row['myo_right_timestamps'][0], row['myo_right_timestamps'][-1], sampling_interval)
+            dataframe.at[i, 'myo_left_timestamps'] = new_timestamps_sx
+            dataframe.at[i, 'myo_right_timestamps'] = new_timestamps_dx
+            dataframe.at[i, 'myo_left_readings'] = [fn_interpolate_sx[ix](new_timestamps_sx) for ix in range(8)]
+            dataframe.at[i, 'myo_right_readings'] = [fn_interpolate_dx[ix](new_timestamps_dx) for ix in range(8)]
+
+        file_name, file_extension = os.path.splitext(filename)
+        dataframe.to_pickle(os.path.join(emg_folder, file_name + "_resample.pkl"))
+
 def pipeline():
-    delete_files()
+    # delete_files()
+    # resample()
     augment_dataset()
     pre_process_emg()
     emg2rgb()
