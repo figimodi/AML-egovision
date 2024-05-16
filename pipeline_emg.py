@@ -225,9 +225,11 @@ def augment_partition(file_path: str):
 
     # Save the DataFrame to a pickle file
     file_name, file_extension = os.path.splitext(file_path)
-    new_data.to_pickle(f'{file_name.replace('_resample', '')}_augmented.pkl')
+    file_name = file_name.replace('_resample', '')
+    new_data.to_pickle(f'{file_name}_augmented.pkl')
 
     # Update the split files with the new augmented dataset
+    file_path = file_path.replace('_resample', '')
     create_split_augmented(file_path, f'{file_name}_augmented.pkl')
     print(f'{file_path} was correctly augmented')
 
