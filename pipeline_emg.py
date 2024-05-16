@@ -41,7 +41,8 @@ emg_descriptions_conversion_dict = {
             'Open a jar of almond butter'                          :       'Open/close a jar of almond butter'
         }
 
-def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestamps, right_readings):
+
+def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestamps, right_readings, time_interval:int=5):
     # Initialize empty lists to store the chunks and readings
     left_chunks = [[]]
     right_chunks = [[]]
@@ -50,9 +51,9 @@ def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestam
 
     # Initialize variables to track the current chunk start and end
     left_chunk_start = left_timestamps[0]
-    left_chunk_end = left_chunk_start + 5
+    left_chunk_end = left_chunk_start + time_interval
     right_chunk_start = right_timestamps[0]
-    right_chunk_end = right_chunk_start + 5
+    right_chunk_end = right_chunk_start + time_interval
 
     # Iterate over each time in both left and right lists
     for left_time, left_reading in zip(left_timestamps, left_readings):
@@ -65,7 +66,7 @@ def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestam
             left_chunks.append([left_time])
             left_reading_chunks.append([left_reading])
             left_chunk_start = left_time
-            left_chunk_end = left_chunk_start + 5
+            left_chunk_end = left_chunk_start + time_interval
 
     # Iterate over each time in both right and right lists
     for right_time, right_reading in zip(right_timestamps, right_readings):
@@ -78,7 +79,7 @@ def chunk_timestamps_and_readings(left_timestamps, left_readings, right_timestam
             right_chunks.append([right_time])
             right_reading_chunks.append([right_reading])
             right_chunk_start = right_time
-            right_chunk_end = right_chunk_start + 5
+            right_chunk_end = right_chunk_start + time_interval
 
     return left_chunks, right_chunks, left_reading_chunks, right_reading_chunks
 
@@ -222,8 +223,7 @@ def augment_partition(file_path: str):
 
     # Save the DataFrame to a pickle file
     file_name, file_extension = os.path.splitext(file_path)
-    file_name = file_name.replace('_resample', '')
-    new_data.to_pickle(f'{file_name}_augmented.pkl')
+    new_data.to_pickle(f'{file_name.replace('_resample', '')}_augmented.pkl')
 
     # Update the split files with the new augmented dataset
     create_split_augmented(file_path, f'{file_name}_augmented.pkl')
@@ -235,12 +235,12 @@ def delete_files():
 
     for filename in os.listdir(action_folder):
         if os.path.isfile(os.path.join(action_folder, filename)):
-            if 'augmented' in filename.lower():
+            if 'augmented' in filename.lower() or 'resample' in filename.lower():
                 os.remove(os.path.join(action_folder, filename))
 
     for filename in os.listdir(emg_folder):
         if os.path.isfile(os.path.join(emg_folder, filename)):
-            if 'augmented' in filename.lower():
+            if 'augmented' in filename.lower() or 'resample' in filename.lower():
                 os.remove(os.path.join(emg_folder, filename))
 
 def pad_partitions():
@@ -388,14 +388,6 @@ def merge_pickles():
         if os.path.isfile(os.path.join(emg_folder, filename)) and ('rgb' in filename.lower() or 'emg' in filename.lower() or 'specto' in filename.lower()):
             os.remove(os.path.join(emg_folder, filename))
 
-"""
-1. Each channel is rectified by taking the absolute value
-2. Low-pass filter with cutoff frequency 5 Hz is applied
-3. All 8 channels from an armband are then jointly normalized and shifted to the range [-1, 1] using the minimum and maximum values across all channels
-4. The absolute value of EMG data across all 8 forearm channels are summed together in each timestep to indicate overall forearm activation
-5. The streams are then smoothed to focus on low-frequency signals on time scales comparable to slicing motions (ACTUALLY REFERS TO THE PREVIOUS APPLIED FILTER ACCORDING TO SLACK)
-"""
-
 def design_lowpass_filter(cutoff_freq, sample_rate, filter_order=1):
     nyquist_freq = sample_rate * 0.5  # Nyquist frequency
     normalized_cutoff = cutoff_freq / nyquist_freq
@@ -414,7 +406,7 @@ def filter_signal(data, b, a):
 def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_order: int = 2):
     data = pd.DataFrame(pd.read_pickle(file_path))
     
-    fs = 160                    # sampling frequency
+    fs = 15                    # sampling frequency
     filter_b, filter_a = design_lowpass_filter(cut_frequency, fs, filter_order)
     
     for side in ['myo_left_readings', 'myo_right_readings']:
@@ -593,7 +585,7 @@ def balance_train_test_split(threshold_proportion=0.05):
 
     print('split files were correctly balanced')
 
-def resample(sampling_rate:float=60.):
+def resample(sampling_rate:float=15.):
     emg_folder = 'emg/'
     partitions = os.listdir(emg_folder)
 
@@ -630,19 +622,21 @@ def resample(sampling_rate:float=60.):
             new_timestamps_dx = np.arange(row['myo_right_timestamps'][0], row['myo_right_timestamps'][-1], sampling_interval)
             dataframe.at[i, 'myo_left_timestamps'] = new_timestamps_sx
             dataframe.at[i, 'myo_right_timestamps'] = new_timestamps_dx
-            dataframe.at[i, 'myo_left_readings'] = [fn_interpolate_sx[ix](new_timestamps_sx) for ix in range(8)]
-            dataframe.at[i, 'myo_right_readings'] = [fn_interpolate_dx[ix](new_timestamps_dx) for ix in range(8)]
+            dataframe.at[i, 'myo_left_readings'] = np.array([fn_interpolate_sx[ix](new_timestamps_sx) for ix in range(8)]).transpose(1, 0)
+            dataframe.at[i, 'myo_right_readings'] = np.array([fn_interpolate_dx[ix](new_timestamps_dx) for ix in range(8)]).transpose(1, 0)
 
         file_name, file_extension = os.path.splitext(filename)
         dataframe.to_pickle(os.path.join(emg_folder, file_name + "_resample.pkl"))
 
+        print(f'{filename} was correctly resampled')
+
 def pipeline():
-    # delete_files()
-    # resample()
+    delete_files()
+    resample()
     augment_dataset()
     pre_process_emg()
     emg2rgb()
-    save_spectograms(skipSectrograms=True)
+    save_spectograms(skipSectrograms=False)
     merge_pickles()
     balance_train_test_split()
 

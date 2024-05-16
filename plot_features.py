@@ -58,7 +58,7 @@ def plot_features_PCA(args):
     else:
         fig, ax = plt.subplots()
     
-    # TODO Generalize number of clusters
+    # TODO kmeans before pca?
     km = KMeans(n_clusters=8, random_state=62)
     km.fit(reduced_features)
     

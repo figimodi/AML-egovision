@@ -241,10 +241,6 @@ class ActionSenseDataset(data.Dataset, ABC):
                     trans = transforms.Compose([transforms.ToTensor()])
                     sample[modality] = trans(s)
                     label = sample_appo.label
-                if modality == 'EMG':
-                    myo_left = sample[modality].myo_left_readings
-                    myo_right = sample[modality].myo_right_readings
-                    sample['EMG'] = from_numpy(np.hstack((myo_left, myo_right)))
                 
             return sample, label
     
