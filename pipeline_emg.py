@@ -481,7 +481,7 @@ def final_save_spectrogram(specgram_l, specgram_r, name, resize_factor=.25):
     image_from_plot = cv2.resize(image_from_plot, dsize=None, fx=resize_factor, fy=resize_factor, interpolation=cv2.INTER_AREA)
 
     # Save as an image (you can choose the format based on your needs)
-    imageio.imwrite(f"../spectograms/{name}.png", image_from_plot)
+    imageio.imwrite(f"../spectograms/{name}", image_from_plot)
     plt.close()
 
 
