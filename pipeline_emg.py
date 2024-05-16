@@ -400,8 +400,8 @@ def design_lowpass_filter(cutoff_freq, sample_rate, filter_order=1):
 
 def scale_and_normalize(data):
     data = np.array(data)
-    data = (data - data.min()) / (data.max() - data.min()) * 2 - 1  
-    data = (data - data.mean()) / data.std()
+    data = data / (data.max() - data.min()) - data.min() - 1  
+    # data = (data - data.mean()) / data.std()
     return data
 
 def filter_signal(data, b, a):
