@@ -389,7 +389,7 @@ def merge_pickles():
         train.to_pickle(f'{action_folder}/ActionNet_train_augmented.pkl')
 
     for filename in os.listdir(emg_folder):
-        if os.path.isfile(os.path.join(emg_folder, filename)) and ('rgb' in filename.lower() or 'emg' in filename.lower() or 'specto' in filename.lower() or or 'resample' in filename.lower()):
+        if os.path.isfile(os.path.join(emg_folder, filename)) and ('rgb' in filename.lower() or 'emg' in filename.lower() or 'specto' in filename.lower() or 'resample' in filename.lower()):
             os.remove(os.path.join(emg_folder, filename))
 
 def design_lowpass_filter(cutoff_freq, sample_rate, filter_order=1):
@@ -422,6 +422,7 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
             np_side_data = np.vstack((np_side_data, np_sample))
         
         for j in range(8):
+            np_side_data[:,j] = np.abs(np_side_data[:,j])
             np_side_data[:,j] = filter_signal(np_side_data[:,j], filter_b, filter_a)
             np_side_data[:,j] = scale_and_normalize(np_side_data[:,j])
             
@@ -486,7 +487,7 @@ def save_spectograms(skipSectrograms=False):
         freq_signal = [spectrogram(signal[:, i]) for i in range(8)]
         return freq_signal
 
-    files_to_read = [s for s in os.listdir('emg/') if "augmented" in s and 'rgb' not in s and 'S09_2' in s]
+    files_to_read = [s for s in os.listdir('emg/') if "augmented" in s and 'rgb' not in s]
 
     print("Saving spectrograms...")
 
@@ -652,12 +653,12 @@ def resample(sampling_rate:float=15.):
         print(f'{filename} was correctly resampled')
 
 def pipeline():
-    # delete_files()
-    # resample()
-    # augment_dataset()
-    # pre_process_emg()
-    # emg2rgb()
-    save_spectograms(skipSectrograms=False)
+    delete_files()
+    resample()
+    augment_dataset()
+    pre_process_emg()
+    emg2rgb()
+    save_spectograms(skipSectrograms=True)
     merge_pickles()
     balance_train_test_split()
 
