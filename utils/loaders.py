@@ -233,8 +233,10 @@ class ActionSenseDataset(data.Dataset, ABC):
                     sample[modality] = self.model_features[modality][index]
                     label = self.video_list[index].label
                 elif modality == 'EMG':
-                    sample[modality] = self.model_features[modality].loc[index, :]
-                    label = sample[modality].label
+                    left_readings_array = self.model_features[modality].loc[index, 'myo_left_readings']
+                    right_readings_array = self.model_features[modality].loc[index, 'myo_right_readings']
+                    sample[modality] = np.concatenate((left_readings_array, right_readings_array), axis=1)
+                    label = self.model_features[modality].loc[index, 'label']
                 elif modality == 'specto':
                     sample_appo = self.model_features[modality].loc[index, :]
                     s = Image.open(os.path.join('..','spectograms',sample_appo['specto_file'])).convert('RGB')

@@ -163,8 +163,8 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
             if args_mod.models.RGB.name == 'LSTM' or args_mod.models.RGB.name == 'RNN':
                 # skip aggregation but concatenate features
                 # source_data.shape = (32, 1, 5120) containing the 5x1024 clips flattened
-                source_data = source_data['RGB'].view(32, -1).unsqueeze(1)
-                source_data = source_data.to(torch.double)
+                source_data['RGB'] = source_data['RGB'].view(32, -1).unsqueeze(1)
+                source_data['RGB'] = source_data['RGB'].to(torch.double)
             else:
                 # aggregate features along temporal axis with a pooling layer
                 # pooling_layer = torch.nn.MaxPool2d(kernel_size=(5, 1))
