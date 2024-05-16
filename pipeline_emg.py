@@ -400,8 +400,8 @@ def design_lowpass_filter(cutoff_freq, sample_rate, filter_order=1):
 
 def scale_and_normalize(data):
     data = np.array(data)
-    data = data / np.amax(data) - np.amin(data) - np.amin(data) - 1  
-    # data = (data - data.mean()) / data.std()
+    data = (data - data.min()) / (data.max() - data.min()) * 2 - 1  
+    data = (data - data.mean()) / data.std()
     return data
 
 def filter_signal(data, b, a):
@@ -421,12 +421,10 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
             lengths.append(np_sample.shape[0])
             np_side_data = np.vstack((np_side_data, np_sample))
         
-        np_side_data[:, :] = np.abs(np_side_data)
-
         for j in range(8):
+            np_side_data[:,j] = np.abs(np_side_data[:,j])
             np_side_data[:,j] = filter_signal(np_side_data[:,j], filter_b, filter_a)
-            
-        np_side_data = scale_and_normalize(np_side_data)
+            np_side_data[:,j] = scale_and_normalize(np_side_data[:,j])
             
         start = 0
         for i, l in enumerate(lengths):
@@ -560,7 +558,7 @@ def balance_train_test_split(threshold_proportion=0.05):
     for c in range(num_classes):
         tot_samples_c = len(dataset_train[dataset_train['label'] == c])
         n_samples_x_class['train'][c] = tot_samples_c
-    
+
     for i, row in split_test.iterrows():
         index = row['index']
         filename = row['file']
