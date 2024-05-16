@@ -234,10 +234,9 @@ def validate(model, val_loader, device, it, num_classes):
 
             for m in modalities:
                 clips = {}
-                if m == 'EMG' or m == 'RGB':
-                    clips[m] = data[m].to(device).double()
-                    output, _ = model(clips)
-                    logits[m] = output[m]
+                clips[m] = data[m].to(device).double()
+                output, _ = model(clips)
+                logits[m] = output[m]
 
             model.compute_accuracy(logits, label)
 

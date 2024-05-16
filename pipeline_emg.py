@@ -389,7 +389,7 @@ def merge_pickles():
         train.to_pickle(f'{action_folder}/ActionNet_train_augmented.pkl')
 
     for filename in os.listdir(emg_folder):
-        if os.path.isfile(os.path.join(emg_folder, filename)) and ('rgb' in filename.lower() or 'emg' in filename.lower() or 'specto' in filename.lower()):
+        if os.path.isfile(os.path.join(emg_folder, filename)) and ('rgb' in filename.lower() or 'emg' in filename.lower() or 'specto' in filename.lower() or or 'resample' in filename.lower()):
             os.remove(os.path.join(emg_folder, filename))
 
 def design_lowpass_filter(cutoff_freq, sample_rate, filter_order=1):
@@ -431,25 +431,6 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
             start+=l
 
     return data
-
-# def final_save_spectrogram(specgram_l, specgram_r, name, title=None, ylabel="freq_bin"):
-#     fig, axs = plt.subplots(len(specgram_l)+len(specgram_r), 1, figsize=(16, 8))
-
-#     axs[0].set_title(title or "Spectrogram (db)")
-
-#     both_specs = [*specgram_l, *specgram_r]
-
-#     for i, spec in enumerate(both_specs):
-#         im = axs[i].imshow(librosa.power_to_db(both_specs[i]), origin="lower", aspect="auto")
-#         axs[i].get_xaxis().set_visible(False)
-#         axs[i].get_yaxis().set_visible(False)
-
-#     axs[i].set_xlabel("Frame number")
-#     axs[i].get_xaxis().set_visible(True)
-
-#     plt.savefig(f"../spectograms/{name}")
-#     plt.close()
-
 
 def final_save_spectrogram(specgram_l, specgram_r, name, resize_factor=.25):
     fig, axs = plt.subplots(len(specgram_l)+len(specgram_r), 1, figsize=(16, 8))
@@ -505,7 +486,7 @@ def save_spectograms(skipSectrograms=False):
         freq_signal = [spectrogram(signal[:, i]) for i in range(8)]
         return freq_signal
 
-    files_to_read = [s for s in os.listdir('emg/') if "augmented" in s and 'rgb' not in s]
+    files_to_read = [s for s in os.listdir('emg/') if "augmented" in s and 'rgb' not in s and 'S09_2' in s]
 
     print("Saving spectrograms...")
 
@@ -671,11 +652,11 @@ def resample(sampling_rate:float=15.):
         print(f'{filename} was correctly resampled')
 
 def pipeline():
-    delete_files()
-    resample()
-    augment_dataset()
-    pre_process_emg()
-    emg2rgb()
+    # delete_files()
+    # resample()
+    # augment_dataset()
+    # pre_process_emg()
+    # emg2rgb()
     save_spectograms(skipSectrograms=False)
     merge_pickles()
     balance_train_test_split()
