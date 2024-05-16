@@ -400,7 +400,7 @@ def design_lowpass_filter(cutoff_freq, sample_rate, filter_order=1):
 
 def scale_and_normalize(data):
     data = np.array(data)
-    data = data / (data.max() - data.min()) - data.min() - 1  
+    data = data / np.amax(data) - np.amin(data) - np.amin(data) - 1  
     # data = (data - data.mean()) / data.std()
     return data
 
@@ -421,10 +421,12 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
             lengths.append(np_sample.shape[0])
             np_side_data = np.vstack((np_side_data, np_sample))
         
+        np_side_data[:, :] = np.abs(np_side_data)
+
         for j in range(8):
-            np_side_data[:,j] = np.abs(np_side_data[:,j])
             np_side_data[:,j] = filter_signal(np_side_data[:,j], filter_b, filter_a)
-            np_side_data[:,j] = scale_and_normalize(np_side_data[:,j])
+            
+        np_side_data = scale_and_normalize(np_side_data)
             
         start = 0
         for i, l in enumerate(lengths):
