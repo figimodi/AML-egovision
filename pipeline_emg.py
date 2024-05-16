@@ -653,12 +653,12 @@ def resample(sampling_rate:float=15.):
         print(f'{filename} was correctly resampled')
 
 def pipeline():
-    delete_files()
-    resample()
-    augment_dataset()
-    pre_process_emg()
-    emg2rgb()
-    save_spectograms(skipSectrograms=True)
+    # delete_files()
+    # resample()
+    # augment_dataset()
+    # pre_process_emg()
+    # emg2rgb()
+    save_spectograms(skipSectrograms=False)
     merge_pickles()
     balance_train_test_split()
 

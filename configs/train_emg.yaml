@@ -35,9 +35,9 @@ modalities:
         normalize: False
         kwargs: {}
         lr_steps: 3000
-        lr: 0.01
+        lr: 0.05
         sgd_momentum: 0.9
-        weight_decay: 1e-7
+        weight_decay: 1e-4
   RGB:
     train:
       num_iter: 5000 # number of training iterations with total_batch size
