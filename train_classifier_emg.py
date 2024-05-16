@@ -232,28 +232,12 @@ def validate(model, val_loader, device, it, num_classes):
         for i_val, (data, label) in enumerate(val_loader):
             label = label.to(device)
 
-            if modalities[0] == 'EMG' and len(modalities)==1:
+            for m in modalities:
                 clips = {}
-                for m in modalities:
-                    clips[m] = data[m].to(device)
+                if m == 'EMG' or m == 'RGB':
+                    clips[m] = data[m].to(device).double()
                     output, _ = model(clips)
                     logits[m] = output[m]
-            else:
-                for m in modalities:
-                    batch = data[m].shape[0]
-                    logits[m] = torch.zeros((args_mod.test.num_clips, batch, num_classes)).to(device)
-
-                clip = {}
-                for i_c in range(args_mod.test.num_clips):
-                    for m in modalities:
-                        clip[m] = data[m][:, i_c].to(device)
-
-                    output, _ = model(clip)
-                    for m in modalities:
-                        logits[m][i_c] = output[m]
-
-                for m in modalities:
-                    logits[m] = torch.mean(logits[m], dim=0)
 
             model.compute_accuracy(logits, label)
 
