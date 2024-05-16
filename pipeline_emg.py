@@ -558,7 +558,7 @@ def balance_train_test_split(threshold_proportion=0.05):
     for c in range(num_classes):
         tot_samples_c = len(dataset_train[dataset_train['label'] == c])
         n_samples_x_class['train'][c] = tot_samples_c
-
+    
     for i, row in split_test.iterrows():
         index = row['index']
         filename = row['file']
