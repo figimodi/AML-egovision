@@ -93,7 +93,7 @@ modalities:
 
     models:
       specto:
-        name: "FinalClassifierCNN"
+        name: "ResNet18"
         normalize: False
         kwargs: {}
         lr_steps: 300

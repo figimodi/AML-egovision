@@ -436,37 +436,29 @@ def emg_adjust_features(file_path: str, *, cut_frequency: float = 5.0, filter_or
     return data
 
 def final_save_spectrogram(specgram_l, specgram_r, name, resize_factor=.25):
-    fig, axs = plt.subplots(len(specgram_l)+len(specgram_r), 1, figsize=(16, 8))
-
-    # Remove the title (axs[0].set_title(...) is commented out)
-    # axs[0].set_title(title or "Spectrogram (db)")
-
     both_specs = [*specgram_l, *specgram_r]
+    
+    for i in range(len(both_specs)):
+        plt.figure()
+        
+        plt.imshow(librosa.power_to_db(both_specs[i]), origin="lower", aspect="auto")
+        plt.axis('off')
+        plt.gca().set_position([0, 0, 1, 1])
+        
+        # plt.savefig(f"../spectrograms/{name}_{i}")
+        
+        fig = plt.gcf()
+        
+        fig.canvas.draw()
+        image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        image_from_plot = image_from_plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-    for i, spec in enumerate(both_specs):
-        im = axs[i].imshow(librosa.power_to_db(both_specs[i]), origin="lower", aspect="auto")
-        axs[i].get_xaxis().set_visible(False)
-        axs[i].get_yaxis().set_visible(False)
+        # Resize
+        image_from_plot = cv2.resize(image_from_plot, dsize=None, fx=resize_factor, fy=resize_factor, interpolation=cv2.INTER_AREA)
 
-    # Move x-axis label to the last subplot and show the x-axis
-    axs[-1].set_xlabel("Frame number")
-
-    # Adjust the layout to remove whitespace
-    plt.subplots_adjust(left=0, right=1, bottom=0, top=1, wspace=0, hspace=0)
-
-    fig = plt.gcf()
-
-    # Convert the figure to a numpy array
-    fig.canvas.draw()
-    image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    image_from_plot = image_from_plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-
-    # Resize
-    image_from_plot = cv2.resize(image_from_plot, dsize=None, fx=resize_factor, fy=resize_factor, interpolation=cv2.INTER_AREA)
-
-    # Save as an image (you can choose the format based on your needs)
-    imageio.imwrite(f"../spectograms/{name}", image_from_plot)
-    plt.close()
+        # Save as an image (you can choose the format based on your needs)
+        imageio.imwrite(f"../spectrograms/{name}_{i}.png", image_from_plot)
+        plt.close()
 
 def save_spectograms(skipSectrograms=False):
     backup_spectrograms = {'Get/replace items from refrigerator/cabinets/drawers': 'S00_2_0.png', 'Peel a cucumber': 'S00_2_15.png', 'Slice a cucumber': 'S00_2_43.png', 'Peel a potato': 'S00_2_72.png', 'Slice a potato': 'S00_2_104.png', 'Slice bread': 'S00_2_134.png', 'Spread almond butter on a bread slice': 'S00_2_165.png', 'Spread jelly on a bread slice': 'S00_2_180.png', 'Open/close a jar of almond butter': 'S00_2_189.png', 'Pour water from a pitcher into a glass': 'S00_2_201.png', 'Clean a plate with a sponge': 'S00_2_224.png', 'Clean a plate with a towel': 'S00_2_236.png', 'Clean a pan with a sponge': 'S00_2_243.png', 'Clean a pan with a towel': 'S00_2_251.png', 'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_260.png', 'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_282.png', 'Stack on table: 3 each large/small plates, bowls': 'S00_2_304.png', 'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_315.png', 'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_350.png', 'Clear cutting board': 'S02_2_48.png'}
@@ -502,7 +494,7 @@ def save_spectograms(skipSectrograms=False):
             signal_r = torch.Tensor(emg_annotations.iloc[sample_no].myo_right_readings)
             label = emg_annotations.iloc[sample_no].description
             file_name_prefix = f.split("_augmented")[0]
-            name = f"{file_name_prefix}_{sample_no}.png"
+            name = f"{file_name_prefix}_{sample_no}"
             try:
                 freq_signal_l = compute_spectrogram(signal_l)
                 freq_signal_r = compute_spectrogram(signal_r)
@@ -660,7 +652,7 @@ def pipeline():
     augment_dataset()
     pre_process_emg()
     emg2rgb()
-    save_spectograms(skipSectrograms=True)
+    save_spectograms(skipSectrograms=False)
     merge_pickles()
     balance_train_test_split()
 

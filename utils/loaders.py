@@ -5,7 +5,7 @@ import pandas as pd
 from .epic_record import EpicVideoRecord
 from .action_record import ActionRecord
 import torch.utils.data as data
-from torch import from_numpy
+from torch import from_numpy, stack
 from PIL import Image
 import os
 import os.path
@@ -239,9 +239,11 @@ class ActionSenseDataset(data.Dataset, ABC):
                     label = self.model_features[modality].loc[index, 'label']
                 elif modality == 'specto':
                     sample_appo = self.model_features[modality].loc[index, :]
-                    s = Image.open(os.path.join('..','spectograms',sample_appo['specto_file'])).convert('RGB')
+                    all_p = sorted([os.path.join('..','spectrograms',f"{sample_appo['specto_file']}_{i}.png") for i in range(16)])
+                    all_s = [ Image.open(p).convert('RGB') for p in all_p]
                     trans = transforms.Compose([transforms.ToTensor()])
-                    sample[modality] = trans(s)
+                    all_t = [ trans(s) for s in all_s ]
+                    sample[modality] = stack(all_t, dim=0) 
                     label = sample_appo.label
                 
             return sample, label
