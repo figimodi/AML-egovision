@@ -254,6 +254,10 @@ class ProcessEmgDataset():
         return data
 
     def __normalize__(self, data, data_target:str='channel_global') -> pd.DataFrame: 
+        stats = dict
+        with open('stats.pkl', 'rb') as pickle_file:
+            stats = pickle.load(pickle_file)
+
         if data_target == 'channel':
             for side in ['myo_left_readings', 'myo_right_readings']:
                 np_side_data = np.empty((0,8))
@@ -272,10 +276,6 @@ class ProcessEmgDataset():
                 start+=l                 
             return data
         elif data_target == 'channel_global':
-            stats = dict
-            with open('stats.pkl', 'rb') as pickle_file:
-                stats = pickle.load(pickle_file)
-            
             sx_data = data['myo_left_readings'].values
             for i in range(len(sx_data)):
                 sx_data[i] = (sx_data[i] - stats['left_mean'])  / stats['left_std']
@@ -290,29 +290,32 @@ class ProcessEmgDataset():
             return data
         elif data_target == "global":
             #copy from data (dataframe) to np_side_data(np array)
-            np_side_data = {}
             for side in ['myo_left_readings', 'myo_right_readings']:
-                np_side_data_app = np.empty((0,8))
+                np_side_data = np.empty((0,8))
                 lengths = []
 
                 for sample in data[side]:
                     np_sample = np.array(sample)
                     lengths.append(np_sample.shape[0])
-                    np_side_data[side] = np.vstack((np_side_data_app, np_sample))
+                    np_side_data = np.vstack((np_side_data, np_sample))
             
-            mean = stats["g_mean"]
-            std = stats["g_std"]
-        
-            np_side_data[side] = (np_side_data[side] - mean) / std  
+                mean = stats["g_mean"]
+                std = stats["g_std"]
             
-            start = 0
-            for i, l in enumerate(lengths):
-                data.iat[i, data.columns.get_loc(side)] = np_side_data[side][start:start+l, :].tolist()
-                start+=l               
+                np_side_data = (np_side_data - mean) / std  
+                
+                start = 0
+                for i, l in enumerate(lengths):
+                    data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
+                    start+=l               
         
             return data
 
     def __scale__(self, data, data_target:str='channel_global') -> pd.DataFrame:
+        stats = dict
+        with open('stats.pkl', 'rb') as pickle_file:
+            stats = pickle.load(pickle_file)
+
         if data_target == 'channel':
             for side in ['myo_left_readings', 'myo_right_readings']:
                 np_side_data = np.empty((0,8))
@@ -331,10 +334,6 @@ class ProcessEmgDataset():
 
             return data
         elif data_target == 'channel_global':
-            stats = dict
-            with open('stats.pkl', 'rb') as pickle_file:
-                stats = pickle.load(pickle_file)
-            
             sx_data = data['myo_left_readings'].values
             for i in range(len(sx_data)):
                 sx_data[i] = (sx_data[i] - stats['left_min_value'])  / (stats['left_max_value'] - stats['left_min_value']) * 2 - 1
@@ -353,25 +352,24 @@ class ProcessEmgDataset():
                 stats = pickle.load(pickle_file)
             
             #copy from data (dataframe) to np_side_data(np array)
-            np_side_data = {}
             for side in ['myo_left_readings', 'myo_right_readings']:
-                np_side_data_app = np.empty((0,8))
+                np_side_data = np.empty((0,8))
                 lengths = []
                 
                 for sample in data[side]:
                     np_sample = np.array(sample)
                     lengths.append(np_sample.shape[0])
-                    np_side_data[side] = np.vstack((np_side_data_app, np_sample))
+                    np_side_data = np.vstack((np_side_data, np_sample))
 
-            abs_min = stats["g_min"]
-            abs_max = stats["g_max"]
-        
-            np_side_data[side] = (np_side_data[side] - abs_min) / (abs_max - abs_min) * 2 - 1    
-                
-            start = 0
-            for i, l in enumerate(lengths):
-                data.iat[i, data.columns.get_loc(side)] = np_side_data[side][start:start+l, :].tolist()
-                start+=l               
+                abs_min = stats["g_min"]
+                abs_max = stats["g_max"]
+            
+                np_side_data = (np_side_data - abs_min) / (abs_max - abs_min) * 2 - 1    
+                    
+                start = 0
+                for i, l in enumerate(lengths):
+                    data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
+                    start+=l               
         
             return data
 
@@ -439,8 +437,8 @@ class ProcessEmgDataset():
             "right_std": right_readings.std(axis=0).reshape(8, 1),
             "g_min": min(left_readings.min(), right_readings.min()),
             "g_max": max(left_readings.max(), right_readings.max()),
-            "g_mean": (left_readings.mean()+right_readings.mean())/.2,
-            "g_std": np.vstack(left_readings, right_readings).reshape(-1,).std()
+            "g_mean": (left_readings.mean()+right_readings.mean())/2,
+            "g_std": np.vstack((left_readings, right_readings)).reshape(-1,).std()
         }
 
         with open('stats.pkl', 'wb') as pickle_file:
@@ -856,7 +854,7 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(norm_method="channel", operations=['filter', 'normalize', 'scale'], fs=160., cut_frequency=5., filter_order=2)
+    processing.pre_processing(data_target="global", operations=['filter', 'scale', 'normalize'], fs=160., cut_frequency=5., filter_order=2)
     processing.resample(sampling_rate=10.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
