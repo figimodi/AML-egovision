@@ -194,3 +194,5 @@ colab_runner.ipynb
 .vscode/
 emg/*/
 !emg/base/
+action-net/*/
+!action-net/base/
