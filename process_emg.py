@@ -614,11 +614,12 @@ class ProcessEmgDataset():
             data['myo_left_readings'] = left_abs
             data['myo_right_readings'] = right_abs
 
-            data.to_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename))
+            data.to_pickle(os.path.join(self.FOLDERS['data'], next_folder, filename))
 
         self.__calculate_stats__()
 
-        for filename in os.listdir(os.path.join(self.FOLDERS['data'], self.current_emg_folder)):
+        for filename in os.listdir(os.path.join(self.FOLDERS['data'], next_folder)):
+            data = pd.DataFrame(pd.read_pickle(os.path.join(self.FOLDERS['data'], next_folder, filename)))
             for op in operations:
                 data = map_functions[op](data)  
 
