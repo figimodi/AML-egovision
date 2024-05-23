@@ -255,38 +255,55 @@ class ProcessEmgDataset():
 
     def __normalize__(self, data) -> pd.DataFrame: 
         for side in ['myo_left_readings', 'myo_right_readings']:
-                np_side_data = np.empty((0,8))
-                lengths = []
-                for sample in data[side]:
-                    np_sample = np.array(sample)
-                    lengths.append(np_sample.shape[0])
-                    np_side_data = np.vstack((np_side_data, np_sample))
+            np_side_data = np.empty((0,8))
+            lengths = []
+            for sample in data[side]:
+                np_sample = np.array(sample)
+                lengths.append(np_sample.shape[0])
+                np_side_data = np.vstack((np_side_data, np_sample))
+            
+            for j in range(8):
+                np_side_data[:,j] = (np_side_data[:,j] - np_side_data[:,j].mean()) / np_side_data[:,j].std()
                 
-                for j in range(8):
-                    np_side_data[:,j] = (np_side_data[:,j] - np_side_data[:,j].mean()) / np_side_data[:,j].std()
-                    
-                start = 0
-                for i, l in enumerate(lengths):
-                    data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
-                    start+=l                 
+            start = 0
+            for i, l in enumerate(lengths):
+                data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
+                start+=l                 
         return data
 
-    def __scale__(self, data) -> pd.DataFrame:
-        for side in ['myo_left_readings', 'myo_right_readings']:
-                np_side_data = np.empty((0,8))
-                lengths = []
-                for sample in data[side]:
-                    np_sample = np.array(sample)
-                    lengths.append(np_sample.shape[0])
-                    np_side_data = np.vstack((np_side_data, np_sample))
-                
+    def __scale__(self, data, data_target) -> pd.DataFrame:    
+        sides = ['myo_left_readings', 'myo_right_readings']
+        
+        #copy from data (dataframe) to np_side_data(np array)
+        np_side_data = {}
+        for side in sides:
+            np_side_data_app = np.empty((0,8))
+            lengths = []
+            for sample in data[side]:
+                np_sample = np.array(sample)
+                lengths.append(np_sample.shape[0])
+                np_side_data[side] = np.vstack((np_side_data_app, np_sample))
+        
+        #scale channel wise
+        if data_target == "channel":
+            for side in sides:
                 for j in range(8):
-                    np_side_data[:,j] = (np_side_data[:,j] - np_side_data[:,j].min()) / (np_side_data[:,j].max() - np_side_data[:,j].min()) * 2 - 1
+                    np_side_data[side][:,j] = (np_side_data[side][:,j] - np_side_data[side][:,j].min()) / (np_side_data[side][:,j].max() - np_side_data[side][:,j].min()) * 2 - 1
                     
-                start = 0
-                for i, l in enumerate(lengths):
-                    data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
-                    start+=l                 
+        #scale globally                    
+        elif data_target == "global":
+            abs_min = min(np_side_data[sides[0]].min(), np_side_data[sides[1]].min())
+            abs_max = min(np_side_data[sides[0]].max(), np_side_data[sides[1]].max())
+            
+            for side in sides:
+                np_side_data[side] = (np_side_data[side] - abs_min) / (abs_max - abs_min) * 2 - 1    
+                
+        for side in sides:
+            start = 0
+            for i, l in enumerate(lengths):
+                data.iat[i, data.columns.get_loc(side)] = np_side_data[side][start:start+l, :].tolist()
+                start+=l               
+    
         return data
 
     def __save_spectogram__(self, specgram_l, specgram_r, name, resize_factor=.25) -> None:
@@ -351,17 +368,6 @@ class ProcessEmgDataset():
             'right_mean': right_readings.mean(axis=0).reshape(8, 1),
             "left_std": left_readings.std(axis=0).reshape(8, 1),
             "right_std": right_readings.std(axis=0).reshape(8, 1),
-        }
-
-        stats = {
-            'left_max_value': 0, 
-            'left_min_value': -1,
-            'right_max_value': 0, 
-            'right_min_value': -1,
-            'left_mean':0,
-            'right_mean': 0,
-            "left_std": 1,
-            "right_std": 1,
         }
 
         with open('stats.pkl', 'wb') as file:
@@ -518,11 +524,11 @@ class ProcessEmgDataset():
 
         print(f"Dataset was correclty padded")
 
-    def pre_processing(self, operations:list=['filter', 'scale', 'normalize'], fs:float=160., cut_frequency:float=5., filter_order:int=2) -> None:
+    def pre_processing(self, data_target:str='channel_global', operations:list=['filter', 'scale', 'normalize'], fs:float=160., cut_frequency:float=5., filter_order:int=2) -> None:
         map_functions = {
-            'filter': lambda data: self.__low_pass_filter__(data, fs, cut_frequency, filter_order),
-            'scale': self.__scale__,
-            'normalize': self.__normalize__,
+            'filter': lambda data: self.low_pass_filter(data, fs, cut_frequency, filter_order),
+            'scale': lambda data: self.scale(data, data_target),
+            'normalize': lambda data: self.normalize(data, data_target),
         }
 
         next_folder = f'step{self.current_step}-preproc'
@@ -534,25 +540,18 @@ class ProcessEmgDataset():
             data = pd.DataFrame(pd.read_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename)))
             data = data[data['description'] != 'calibration']
 
-            for side in ['myo_left_readings', 'myo_right_readings']:
-                np_side_data = np.empty((0,8))
-                lengths = []
-                for sample in data[side]:
-                    np_sample = np.array(sample)
-                    lengths.append(np_sample.shape[0])
-                    np_side_data = np.vstack((np_side_data, np_sample))
-                
-                for j in range(8):
-                    np_side_data[:,j] = np.abs(np_side_data[:,j])
-                    
-                start = 0
-                for i, l in enumerate(lengths):
-                    data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
-                    start+=l  
+            left_abs = np.abs(data['myo_left_readings'].values)
+            right_abs = np.abs(data['myo_right_readings'].values)
+            data['myo_left_readings'] = left_abs
+            data['myo_right_readings'] = right_abs
 
+            data.to_pickle(os.path.join(self.FOLDERS['data'], current_emg_folder, filename))
+
+        self.calculate_stats()
+
+        for filename in os.listdir(os.path.join(self.FOLDERS['data'], self.current_emg_folder)):
             for op in operations:
                 data = map_functions[op](data)
-                
 
             data.to_pickle(os.path.join(self.FOLDERS['data'], next_folder, filename))
 
@@ -787,11 +786,11 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(operations=['filter', 'normalize', 'scale'], fs=160., cut_frequency=5., filter_order=2)
+    processing.pre_processing(norm_method="global", operations=['filter', 'normalize', 'scale'], fs=160., cut_frequency=5., filter_order=2)
     processing.resample(sampling_rate=10.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
-    processing.padding(type_padding='mean')
+    processing.padding(type_padding='zeros')
     processing.generate_rgb()
     processing.merge_pickles()
     processing.balance_splits()
