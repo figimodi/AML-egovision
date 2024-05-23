@@ -83,14 +83,14 @@ def main():
         print("Train loader")
         
         train_loader = torch.utils.data.DataLoader(
-            ActionSenseDataset('train', [args.modality]),
+            ActionSenseDataset('train', [args.modality], args.split_path, args.emg_path),
             batch_size=args.batch_size, shuffle=True, num_workers=args_mod.dataset.workers, pin_memory=True, drop_last=True
         )
         
         print("Val loader")
 
         val_loader = torch.utils.data.DataLoader(
-                ActionSenseDataset('test', [args.modality]),
+                ActionSenseDataset('test', [args.modality], args.split_path, args.emg_path),
             batch_size=args.batch_size, shuffle=False, num_workers=args_mod.dataset.workers, pin_memory=True, drop_last=False
         )
         

@@ -39,8 +39,8 @@ emg_descriptions_to_labels = [
 
 
 class ActionSenseDataset(data.Dataset, ABC):
-    def __init__(self, mode, modalities, sampling='dense', n_frames_per_clip=16, n_clips=5, stride=2, dataset_conf=None, transform=None, extract_features=False) -> None:
-        file_name = f'./action-net/ActionNet_{mode}_augmented.pkl'
+    def __init__(self, mode, modalities, split_path, emg_path, sampling='dense', n_frames_per_clip=16, n_clips=5, stride=2, dataset_conf=None, transform=None, extract_features=False) -> None:
+        file_name = f'./{split_path}/ActionNet_{mode}.pkl'
         self.split_file = pd.DataFrame(pd.read_pickle(file_name))
         self.mode = mode
         self.modalities = modalities
@@ -56,11 +56,10 @@ class ActionSenseDataset(data.Dataset, ABC):
         self.video_list = []
 
         # load all the samples
-        for filename in os.listdir('emg/'):
-            if os.path.isfile(os.path.join('emg/', filename)) and 'augmented' in filename.lower():
-                samples = pd.DataFrame(pd.read_pickle(os.path.join('emg/', filename)))
-                agent = filename[:5]
-                self.samples_dict[agent] = samples
+        for filename in os.listdir(emg_path):
+            samples = pd.DataFrame(pd.read_pickle(os.path.join(emg_path, filename)))
+            agent = filename[:5]
+            self.samples_dict[agent] = samples
      
         if not self.extract_features:
             # load the already extracted features to be the RGB samples

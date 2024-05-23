@@ -294,6 +294,9 @@ class ProcessEmgDataset():
             image_from_plot = cv2.resize(image_from_plot, dsize=None, fx=resize_factor, fy=resize_factor, interpolation=cv2.INTER_AREA)
 
             # Save as an image (you can choose the format based on your needs)
+
+            if not os.path.exists('../spectrograms'):
+                os.makedirs('../spectrograms')
             imageio.imwrite(f"../spectrograms/{name}_{i}.png", image_from_plot)
             plt.close()
 
