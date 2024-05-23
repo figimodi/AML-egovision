@@ -534,29 +534,18 @@ class ProcessEmgDataset():
             data = pd.DataFrame(pd.read_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename)))
             data = data[data['description'] != 'calibration']
 
-            for side in ['myo_left_readings', 'myo_right_readings']:
-                np_side_data = np.empty((0,8))
-                lengths = []
-                for sample in data[side]:
-                    np_sample = np.array(sample)
-                    lengths.append(np_sample.shape[0])
-                    np_side_data = np.vstack((np_side_data, np_sample))
-                
-                for j in range(8):
-                    np_side_data[:,j] = np.abs(np_side_data[:,j])
-                    
-                start = 0
-                for i, l in enumerate(lengths):
-                    data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
-                    start+=l  
-
-            for op in operations:
-                data = map_functions[op](data)
-                
+            data['myo_left_readings'] = np.abs(data['myo_left_readings'].values)
+            data['myo_right_readings'] = np.abs(data['myo_right_readings'].values)
 
             data.to_pickle(os.path.join(self.FOLDERS['data'], next_folder, filename))
 
         self.current_emg_folder = next_folder
+        for filename in os.listdir(os.path.join(self.FOLDERS['data'], self.current_emg_folder)):
+            data = pd.DataFrame(pd.read_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename)))
+            for op in operations:
+                data = map_functions[op](data)
+            data.to_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename))
+
         print("Dataset was correctly preprocessed")            
 
     def generate_spectograms(self, save_spectrograms:bool=True) -> None:
@@ -787,7 +776,7 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(operations=['filter', 'normalize', 'scale'], fs=160., cut_frequency=5., filter_order=2)
+    processing.pre_processing(operations=['filter', 'scale', 'normalize'], fs=160., cut_frequency=5., filter_order=2)
     processing.resample(sampling_rate=10.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
