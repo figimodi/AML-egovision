@@ -120,7 +120,7 @@ class ProcessEmgDataset():
         # remove t0. add 1 because the first frame is 0000001 and not 0000000
         return int(value - (t0*self.FRAME_RATE) + 1)
 
-    def __pad_item__(self, sample, size) -> None:
+    def __pad_item__(self, sample, type_padding:str='mean', size:int=0) -> None:
         left_readings = sample['myo_left_readings']
         right_readings = sample['myo_right_readings']
 
@@ -130,14 +130,31 @@ class ProcessEmgDataset():
             original_length = len(value)
             diff = size - original_length
 
-            zeros_left = diff // 2
-            zeros_right = diff - zeros_left
+            left_padding_lenght = diff // 2
+            right_padding_lenght = diff - left_padding_lenght
 
             average_value = sum(value)/len(value)
 
+            pad_value = np.array(average_value).reshape(1, 8)
+
             # Pad the list with zeros on both sides
-            padded_list = [average_value] * zeros_left + value + [average_value] * zeros_right
-            sample[key] = padded_list
+            if left_padding_lenght > 0:
+                if type_padding == 'noise':
+                    left_padding = pad_value + np.random.normal(0, 1, (left_padding_lenght, 8))
+                elif tpye_padding == 'zeros':
+                    left_padding = np.zeros(8).repeat(right_padding_lenght, axis=0)
+                else:
+                    left_padding = pad_value.repeat(left_padding_lenght, axis=0)
+                value = np.concatenate((left_padding, value), axis=0)
+            if right_padding_lenght > 0:
+                if type_padding == 'noise':
+                    right_padding = pad_value + np.random.normal(0, 1, (right_padding_lenght, 8))
+                elif type_padding == 'zeros':
+                    right_padding = np.zeros(8).repeat(right_padding_lenght, axis=0)
+                else:
+                    right_padding = pad_value.repeat(right_padding_lenght, axis=0)
+                value = np.concatenate((value, right_padding), axis=0)
+            sample[key] = value
 
         return sample
 
@@ -213,7 +230,7 @@ class ProcessEmgDataset():
         train.to_pickle(os.path.join(self.FOLDERS['split'], self.current_split_folder, self.split_files['train']))
         test.to_pickle(os.path.join(self.FOLDERS['split'], self.current_split_folder, self.split_files['test']))
 
-    def __low_pass_filter__(self, data, fs:float=10., cut_frequency:float=4., filter_order:int=2) -> pd.DataFrame:
+    def __low_pass_filter__(self, data, fs:float=160., cut_frequency:float=5., filter_order:int=2) -> pd.DataFrame:
         nyquist_freq = fs * 0.5  # Nyquist frequency
         normalized_cutoff = cut_frequency / nyquist_freq
         b, a = signal.butter(filter_order, normalized_cutoff, btype='lowpass')  # Butterworth filter
@@ -375,7 +392,7 @@ class ProcessEmgDataset():
                 os.remove(os.path.join(self.FOLDERS['split'], folder, filename))
             os.rmdir(os.path.join(self.FOLDERS['split'], folder))
 
-    def augment_dataset(self) -> None:
+    def augment_dataset(self, time_interval:int=5) -> None:
         next_folder = f'step{self.current_step}-augment'
         if not os.path.exists(os.path.join(self.FOLDERS['data'], next_folder)):
             os.makedirs(os.path.join(self.FOLDERS['data'], next_folder))
@@ -386,7 +403,7 @@ class ProcessEmgDataset():
             new_data = []
 
             for i, row in data.iterrows():
-                chunks = self.__trim_samples__(row['myo_left_timestamps'], row['myo_left_readings'], row['myo_right_timestamps'], row['myo_right_readings'])
+                chunks = self.__trim_samples__(row['myo_left_timestamps'], row['myo_left_readings'], row['myo_right_timestamps'], row['myo_right_readings'], time_interval)
                 if any(item is None for item in chunks):
                     continue
 
@@ -476,7 +493,7 @@ class ProcessEmgDataset():
         self.current_emg_folder = next_folder
         print(f'Dataset was correctly resampled')
 
-    def padding(self) -> None:
+    def padding(self, type_padding:str='mean') -> None:
         samples = {}
         max_sizes = {}
 
@@ -494,14 +511,14 @@ class ProcessEmgDataset():
         max_lenght = max([max_size for max_size in max_sizes.values()])
 
         for agent, dataframe in samples.items():
-            dataframe = dataframe.apply(lambda row: self.__pad_item__(row, max_lenght), axis=1)
+            dataframe = dataframe.apply(lambda row: self.__pad_item__(row, type_padding, max_lenght), axis=1)
             dataframe.to_pickle(os.path.join(self.FOLDERS['data'], next_folder, f"{agent}.pkl"))
 
         self.current_emg_folder = next_folder
 
         print(f"Dataset was correclty padded")
 
-    def pre_processing(self, operations:list=['filter', 'scale', 'normalize'], fs:float=10., cut_frequency:float=4., filter_order:int=2) -> None:
+    def pre_processing(self, operations:list=['filter', 'scale', 'normalize'], fs:float=160., cut_frequency:float=5., filter_order:int=2) -> None:
         map_functions = {
             'filter': lambda data: self.__low_pass_filter__(data, fs, cut_frequency, filter_order),
             'scale': self.__scale__,
@@ -515,6 +532,7 @@ class ProcessEmgDataset():
 
         for filename in os.listdir(os.path.join(self.FOLDERS['data'], self.current_emg_folder)):
             data = pd.DataFrame(pd.read_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename)))
+            data = data[data['description'] != 'calibration']
 
             for side in ['myo_left_readings', 'myo_right_readings']:
                 np_side_data = np.empty((0,8))
@@ -769,12 +787,12 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.resample()
-    processing.augment_dataset()
-    processing.padding()
-    processing.pre_processing(operations=['filter', 'scale', 'normalize'])
-    processing.generate_rgb()
+    processing.pre_processing(operations=['filter', 'normalize', 'scale'], fs=160., cut_frequency=5., filter_order=2)
+    processing.resample(sampling_rate=10.)
+    processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
+    processing.padding(type_padding='mean')
+    processing.generate_rgb()
     processing.merge_pickles()
     processing.balance_splits()
 
