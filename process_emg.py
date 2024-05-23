@@ -141,7 +141,7 @@ class ProcessEmgDataset():
             if left_padding_lenght > 0:
                 if type_padding == 'noise':
                     left_padding = pad_value + np.random.normal(0, 1, (left_padding_lenght, 8))
-                elif tpye_padding == 'zeros':
+                elif type_padding == 'zeros':
                     left_padding = np.zeros(8).repeat(right_padding_lenght, axis=0)
                 else:
                     left_padding = pad_value.repeat(left_padding_lenght, axis=0)
