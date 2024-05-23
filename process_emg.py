@@ -368,6 +368,9 @@ class ProcessEmgDataset():
             'right_mean': right_readings.mean(axis=0).reshape(8, 1),
             "left_std": left_readings.std(axis=0).reshape(8, 1),
             "right_std": right_readings.std(axis=0).reshape(8, 1),
+            "g_min": min(left_readings.min(), right_readings.min()),
+            "g_max": max(left_readings.max(), right_readings.max()),
+            "g_mean": (left_readings.mean()+right_readings.mean())/.2
         }
 
         with open('stats.pkl', 'wb') as file:
@@ -786,7 +789,7 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(norm_method="global", operations=['filter', 'normalize', 'scale'], fs=160., cut_frequency=5., filter_order=2)
+    processing.pre_processing(norm_method="channel", operations=['filter', 'normalize', 'scale'], fs=160., cut_frequency=5., filter_order=2)
     processing.resample(sampling_rate=10.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
