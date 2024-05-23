@@ -253,8 +253,9 @@ class ProcessEmgDataset():
 
         return data
 
-    def __normalize__(self, data) -> pd.DataFrame: 
-        for side in ['myo_left_readings', 'myo_right_readings']:
+    def __normalize__(self, data, data_target:str='channel_global') -> pd.DataFrame: 
+        if data_target == 'channel':
+            for side in ['myo_left_readings', 'myo_right_readings']:
                 np_side_data = np.empty((0,8))
                 lengths = []
                 for sample in data[side]:
@@ -262,17 +263,62 @@ class ProcessEmgDataset():
                     lengths.append(np_sample.shape[0])
                     np_side_data = np.vstack((np_side_data, np_sample))
                 
-                for j in range(8):
-                    np_side_data[:,j] = (np_side_data[:,j] - np_side_data[:,j].mean()) / np_side_data[:,j].std()
-                    
-                start = 0
-                for i, l in enumerate(lengths):
-                    data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
-                    start+=l                 
-        return data
+            for j in range(8):
+                np_side_data[:,j] = (np_side_data[:,j] - np_side_data[:,j].mean()) / np_side_data[:,j].std()
+                
+            start = 0
+            for i, l in enumerate(lengths):
+                data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
+                start+=l                 
+            return data
+        elif data_target == 'channel_global':
+            stats = dict
+            with open('stats.pkl', 'rb') as pickle_file:
+                stats = pickle.load(pickle_file)
+            
+            sx_data = data['myo_left_readings'].values
+            for i in range(len(sx_data)):
+                sx_data[i] = (sx_data[i] - stats['left_mean'])  / stats['left_std']
 
-    def __scale__(self, data) -> pd.DataFrame:
-        for side in ['myo_left_readings', 'myo_right_readings']:
+            dx_data = data['myo_right_readings'].values
+            for i in range(len(dx_data)):
+                dx_data[i] = (dx_data[i] - stats['right_mean'])  / stats['right_std']
+
+            data['myo_left_readings'] = sx_data
+            data['myo_right_readings'] = dx_data
+
+            return data
+        elif data_target == "global":
+            #copy from data (dataframe) to np_side_data(np array)
+            np_side_data = {}
+            for side in ['myo_left_readings', 'myo_right_readings']:
+                np_side_data_app = np.empty((0,8))
+                lengths = []
+
+                for sample in data[side]:
+                    np_sample = np.array(sample)
+                    lengths.append(np_sample.shape[0])
+                    np_side_data[side] = np.vstack((np_side_data_app, np_sample))
+
+            left_readings = np.vstack([np_side_data['myo_left_readings'].values[i] for i in range(len(np_side_data['myo_left_readings']))])
+            right_readings = np.vstack([np_side_data['myo_right_readings'].values[i] for i in range(len(np_side_data['myo_right_readings']))])
+            all_readings = np.vstack(left_readings, right_readings).reshape(-1,)
+            
+            mean = (np_side_data['myo_left_readings'].mean(), np_side_data['myo_right_readings'].mean()).mean()
+            std = all_readings.std()
+        
+            np_side_data[side] = (np_side_data[side] - mean) / std  
+            
+            start = 0
+            for i, l in enumerate(lengths):
+                data.iat[i, data.columns.get_loc(side)] = np_side_data[side][start:start+l, :].tolist()
+                start+=l               
+        
+            return data
+
+    def __scale__(self, data, data_target:str='channel_global') -> pd.DataFrame:
+        if data_target == 'channel':
+            for side in ['myo_left_readings', 'myo_right_readings']:
                 np_side_data = np.empty((0,8))
                 lengths = []
                 for sample in data[side]:
@@ -280,14 +326,54 @@ class ProcessEmgDataset():
                     lengths.append(np_sample.shape[0])
                     np_side_data = np.vstack((np_side_data, np_sample))
                 
-                for j in range(8):
-                    np_side_data[:,j] = (np_side_data[:,j] - np_side_data[:,j].min()) / (np_side_data[:,j].max() - np_side_data[:,j].min()) * 2 - 1
-                    
-                start = 0
-                for i, l in enumerate(lengths):
-                    data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
-                    start+=l                 
-        return data
+            for j in range(8):
+                np_side_data[:,j] = (np_side_data[:,j] - np_side_data[:,j].min()) / (np_side_data[:,j].max() - np_side_data[:,j].min()) * 2 - 1 
+            start = 0
+            for i, l in enumerate(lengths):
+                data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
+                start+=l    
+
+            return data
+        elif data_target == 'channel_global':
+            stats = dict
+            with open('stats.pkl', 'rb') as pickle_file:
+                stats = pickle.load(pickle_file)
+            
+            sx_data = data['myo_left_readings'].values
+            for i in range(len(sx_data)):
+                sx_data[i] = (sx_data[i] - stats['left_min_value'])  / (stats['left_max_value'] - stats['left_min_value']) * 2 - 1
+
+            dx_data = data['myo_right_readings'].values
+            for i in range(len(dx_data)):
+                dx_data[i] = (dx_data[i] - stats['right_min_value'])  / (stats['right_max_value'] - stats['right_min_value']) * 2 - 1
+
+            data['myo_left_readings'] = sx_data
+            data['myo_right_readings'] = dx_data
+
+            return data
+        elif data_target == "global":
+            #copy from data (dataframe) to np_side_data(np array)
+            np_side_data = {}
+            for side in ['myo_left_readings', 'myo_right_readings']:
+                np_side_data_app = np.empty((0,8))
+                lengths = []
+                
+                for sample in data[side]:
+                    np_sample = np.array(sample)
+                    lengths.append(np_sample.shape[0])
+                    np_side_data[side] = np.vstack((np_side_data_app, np_sample))
+
+            abs_min = min(np_side_data['myo_left_readings'].min(), np_side_data['myo_right_readings'].min())
+            abs_max = max(np_side_data['myo_left_readings'].max(), np_side_data['myo_right_readings'].max())
+        
+            np_side_data[side] = (np_side_data[side] - abs_min) / (abs_max - abs_min) * 2 - 1    
+                
+            start = 0
+            for i, l in enumerate(lengths):
+                data.iat[i, data.columns.get_loc(side)] = np_side_data[side][start:start+l, :].tolist()
+                start+=l               
+        
+            return data
 
     def __save_spectogram__(self, specgram_l, specgram_r, name, resize_factor=.25) -> None:
         both_specs = [*specgram_l, *specgram_r]
@@ -317,7 +403,7 @@ class ProcessEmgDataset():
             imageio.imwrite(f"../spectrograms/{name}_{i}.png", image_from_plot)
             plt.close()
 
-    def calculate_stats(self) -> None:
+    def __calculate_stats__(self) -> dict:
         split_train = pd.DataFrame(pd.read_pickle(os.path.join(self.FOLDERS['split'], self.current_split_folder, self.split_files['train'])))
         samples = {}
         dataset_train = []
@@ -343,29 +429,18 @@ class ProcessEmgDataset():
         right_readings = np.vstack([right_readings.values[i] for i in range(len(right_readings))])
 
         stats = {
-            'left_max_value': left_readings.max(axis=0).reshape(8, 1), 
-            'left_min_value': left_readings.min(axis=0).reshape(8, 1),
-            'right_max_value': right_readings.max(axis=0).reshape(8, 1), 
-            'right_min_value': right_readings.min(axis=0).reshape(8, 1),
-            'left_mean': left_readings.mean(axis=0).reshape(8, 1),
-            'right_mean': right_readings.mean(axis=0).reshape(8, 1),
-            "left_std": left_readings.std(axis=0).reshape(8, 1),
-            "right_std": right_readings.std(axis=0).reshape(8, 1),
+            'left_max_value': left_readings.max(axis=0).reshape(1, 8), 
+            'left_min_value': left_readings.min(axis=0).reshape(1, 8),
+            'right_max_value': right_readings.max(axis=0).reshape(1, 8), 
+            'right_min_value': right_readings.min(axis=0).reshape(1, 8),
+            'left_mean': left_readings.mean(axis=0).reshape(1, 8),
+            'right_mean': right_readings.mean(axis=0).reshape(1, 8),
+            "left_std": left_readings.std(axis=0).reshape(1, 8),
+            "right_std": right_readings.std(axis=0).reshape(1, 8),
         }
 
-        stats = {
-            'left_max_value': 0, 
-            'left_min_value': -1,
-            'right_max_value': 0, 
-            'right_min_value': -1,
-            'left_mean':0,
-            'right_mean': 0,
-            "left_std": 1,
-            "right_std": 1,
-        }
-
-        with open('stats.pkl', 'wb') as file:
-            pickle.dump(stats, file)
+        with open('stats.pkl', 'wb') as pickle_file:
+            pickle.dump(stats, pickle_file)
 
     def delete_temps(self) -> None:
         folders = []
@@ -518,11 +593,11 @@ class ProcessEmgDataset():
 
         print(f"Dataset was correclty padded")
 
-    def pre_processing(self, operations:list=['filter', 'scale', 'normalize'], fs:float=160., cut_frequency:float=5., filter_order:int=2) -> None:
+    def pre_processing(self, data_target:str='channel_global', operations:list=['filter', 'scale', 'normalize'], fs:float=160., cut_frequency:float=5., filter_order:int=2) -> None:
         map_functions = {
             'filter': lambda data: self.__low_pass_filter__(data, fs, cut_frequency, filter_order),
-            'scale': self.__scale__,
-            'normalize': self.__normalize__,
+            'scale': lambda data: self.__scale__(data, data_target),
+            'normalize': lambda data: self.__normalize__(data, data_target),
         }
 
         next_folder = f'step{self.current_step}-preproc'
@@ -537,9 +612,10 @@ class ProcessEmgDataset():
             data['myo_left_readings'] = np.abs(data['myo_left_readings'].values)
             data['myo_right_readings'] = np.abs(data['myo_right_readings'].values)
 
-            data.to_pickle(os.path.join(self.FOLDERS['data'], next_folder, filename))
+            data.to_pickle(os.path.join(self.FOLDERS['data'], next_folder, filename))            
 
         self.current_emg_folder = next_folder
+        self.__calculate_stats__()
         for filename in os.listdir(os.path.join(self.FOLDERS['data'], self.current_emg_folder)):
             data = pd.DataFrame(pd.read_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename)))
             for op in operations:
@@ -776,7 +852,7 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(operations=['filter', 'scale', 'normalize'], fs=160., cut_frequency=5., filter_order=2)
+    processing.pre_processing(data_target='global', operations=['filter', 'scale', 'normalize'], fs=160., cut_frequency=5., filter_order=2)
     processing.resample(sampling_rate=10.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
@@ -784,4 +860,3 @@ if __name__ == '__main__':
     processing.generate_rgb()
     processing.merge_pickles()
     processing.balance_splits()
-
