@@ -299,13 +299,9 @@ class ProcessEmgDataset():
                     np_sample = np.array(sample)
                     lengths.append(np_sample.shape[0])
                     np_side_data[side] = np.vstack((np_side_data_app, np_sample))
-
-            left_readings = np.vstack([np_side_data['myo_left_readings'].values[i] for i in range(len(np_side_data['myo_left_readings']))])
-            right_readings = np.vstack([np_side_data['myo_right_readings'].values[i] for i in range(len(np_side_data['myo_right_readings']))])
-            all_readings = np.vstack(left_readings, right_readings).reshape(-1,)
             
-            mean = (np_side_data['myo_left_readings'].mean(), np_side_data['myo_right_readings'].mean()).mean()
-            std = all_readings.std()
+            mean = stats["g_mean"]
+            std = stats["g_std"]
         
             np_side_data[side] = (np_side_data[side] - mean) / std  
             
@@ -352,6 +348,10 @@ class ProcessEmgDataset():
 
             return data
         elif data_target == "global":
+            stats = dict
+            with open('stats.pkl', 'rb') as pickle_file:
+                stats = pickle.load(pickle_file)
+            
             #copy from data (dataframe) to np_side_data(np array)
             np_side_data = {}
             for side in ['myo_left_readings', 'myo_right_readings']:
@@ -363,8 +363,8 @@ class ProcessEmgDataset():
                     lengths.append(np_sample.shape[0])
                     np_side_data[side] = np.vstack((np_side_data_app, np_sample))
 
-            abs_min = min(np_side_data['myo_left_readings'].min(), np_side_data['myo_right_readings'].min())
-            abs_max = max(np_side_data['myo_left_readings'].max(), np_side_data['myo_right_readings'].max())
+            abs_min = stats["g_min"]
+            abs_max = stats["g_max"]
         
             np_side_data[side] = (np_side_data[side] - abs_min) / (abs_max - abs_min) * 2 - 1    
                 
@@ -429,14 +429,18 @@ class ProcessEmgDataset():
         right_readings = np.vstack([right_readings.values[i] for i in range(len(right_readings))])
 
         stats = {
-            'left_max_value': left_readings.max(axis=0).reshape(1, 8), 
-            'left_min_value': left_readings.min(axis=0).reshape(1, 8),
-            'right_max_value': right_readings.max(axis=0).reshape(1, 8), 
-            'right_min_value': right_readings.min(axis=0).reshape(1, 8),
-            'left_mean': left_readings.mean(axis=0).reshape(1, 8),
-            'right_mean': right_readings.mean(axis=0).reshape(1, 8),
-            "left_std": left_readings.std(axis=0).reshape(1, 8),
-            "right_std": right_readings.std(axis=0).reshape(1, 8),
+            'left_max_value': left_readings.max(axis=0).reshape(8, 1), 
+            'left_min_value': left_readings.min(axis=0).reshape(8, 1),
+            'right_max_value': right_readings.max(axis=0).reshape(8, 1), 
+            'right_min_value': right_readings.min(axis=0).reshape(8, 1),
+            'left_mean': left_readings.mean(axis=0).reshape(8, 1),
+            'right_mean': right_readings.mean(axis=0).reshape(8, 1),
+            "left_std": left_readings.std(axis=0).reshape(8, 1),
+            "right_std": right_readings.std(axis=0).reshape(8, 1),
+            "g_min": min(left_readings.min(), right_readings.min()),
+            "g_max": max(left_readings.max(), right_readings.max()),
+            "g_mean": (left_readings.mean()+right_readings.mean())/.2,
+            "g_std": np.vstack(left_readings, right_readings).reshape(-1,).std()
         }
 
         with open('stats.pkl', 'wb') as pickle_file:
@@ -852,7 +856,7 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(data_target='global', operations=['filter', 'scale', 'normalize'], fs=160., cut_frequency=5., filter_order=2)
+    processing.pre_processing(norm_method="channel", operations=['filter', 'normalize', 'scale'], fs=160., cut_frequency=5., filter_order=2)
     processing.resample(sampling_rate=10.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
