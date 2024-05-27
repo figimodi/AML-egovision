@@ -139,9 +139,7 @@ class ProcessEmgDataset():
             
             if type_padding == "right_only_0":
                 sample[key] = np.pad(value, ((0, size - original_length), (0, 0)), mode='constant')
-                
             else:
-
                 # Pad the list with zeros on both sides
                 if left_padding_lenght > 0:
                     if type_padding == 'noise':
@@ -252,7 +250,7 @@ class ProcessEmgDataset():
                     normalized_cutoff = cut_frequency / nyquist_freq
                     b, a = butter(filter_order, normalized_cutoff, btype='lowpass')  # Butterworth filter
                     
-                    np_sample = filtfilt(b, a, np_sample, axis=0)
+                    np_sample = lfilter(b, a, np_sample, axis=0)
                     
                     # for j in range(8):
                     #     np_sample[:,j] = signal.filtfilt(b, a, np_sample[:,j])
@@ -624,7 +622,7 @@ class ProcessEmgDataset():
 
         print(f"Dataset was correclty padded")
 
-    def pre_processing(self, data_target:str='channel_global', operations:list=['filter', 'scale', 'normalize'], fs:float=160., cut_frequency:float=5., filter_order:int=2) -> None:
+    def pre_processing(self, data_target:str='channel_global', operations:list=['filter', 'scale', 'normalize'], fs:float=160., cut_frequency:float=5., filter_order:int=5) -> None:
         map_functions = {
             'filter': lambda data: self.__low_pass_filter__(data, fs, cut_frequency, filter_order, data_target),
             'scale': lambda data: self.__scale__(data, data_target),
@@ -884,11 +882,11 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=3)
-    processing.resample(sampling_rate=12.)
+    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=5)
+    processing.resample(sampling_rate=10.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
-    processing.padding(type_padding='zero')
+    processing.padding(type_padding='right_only_0')
     processing.generate_rgb()
     processing.merge_pickles()
     processing.balance_splits()

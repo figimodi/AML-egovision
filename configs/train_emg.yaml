@@ -16,7 +16,7 @@ modalities:
   EMG:
     train: 
       num_iter: 20000 # number of training iterations with total_batch size
-      lr_steps: 10000 # steps before reducing learning rate
+      lr_steps: 8000 # steps before reducing learning rate
       eval_freq: 100 # evaluation frequency
 
     test:
