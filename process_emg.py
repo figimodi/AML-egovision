@@ -427,17 +427,17 @@ class ProcessEmgDataset():
         right_readings = np.vstack([right_readings.values[i] for i in range(len(right_readings))])
 
         stats = {
-            'left_max_value': left_readings.max(axis=0).reshape(8, 1), 
-            'left_min_value': left_readings.min(axis=0).reshape(8, 1),
-            'right_max_value': right_readings.max(axis=0).reshape(8, 1), 
-            'right_min_value': right_readings.min(axis=0).reshape(8, 1),
-            'left_mean': left_readings.mean(axis=0).reshape(8, 1),
-            'right_mean': right_readings.mean(axis=0).reshape(8, 1),
-            "left_std": left_readings.std(axis=0).reshape(8, 1),
-            "right_std": right_readings.std(axis=0).reshape(8, 1),
+            'left_max_value': left_readings.max(axis=0).reshape(1, 8), 
+            'left_min_value': left_readings.min(axis=0).reshape(1, 8),
+            'right_max_value': right_readings.max(axis=0).reshape(1, 8), 
+            'right_min_value': right_readings.min(axis=0).reshape(1, 8),
+            'left_mean': left_readings.mean(axis=0).reshape(1, 8),
+            'right_mean': right_readings.mean(axis=0).reshape(1, 8),
+            "left_std": left_readings.std(axis=0).reshape(1, 8),
+            "right_std": right_readings.std(axis=0).reshape(1, 8),
             "g_min": min(left_readings.min(), right_readings.min()),
             "g_max": max(left_readings.max(), right_readings.max()),
-            "g_mean": (left_readings.mean()+right_readings.mean())/2,
+            "g_mean": (left_readings.mean()+right_readings.mean())/2.,
             "g_std": np.vstack((left_readings, right_readings)).reshape(-1,).std()
         }
 
@@ -854,7 +854,7 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(data_target="global", operations=['filter', 'scale', 'normalize'], fs=160., cut_frequency=5., filter_order=2)
+    processing.pre_processing(data_target="channel", operations=['filter', 'scale', 'normalize'], fs=160., cut_frequency=5., filter_order=2)
     processing.resample(sampling_rate=10.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
