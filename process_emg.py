@@ -252,7 +252,8 @@ class ProcessEmgDataset():
                     normalized_cutoff = cut_frequency / nyquist_freq
                     b, a = butter(filter_order, normalized_cutoff, btype='lowpass')  # Butterworth filter
                     
-                    np_sample = filtfilt(b, a, np_sample, axis=0)
+                    # np_sample = filtfilt(b, a, np_sample, axis=0)
+                    np_sample = lfilter(b, a, np_sample, axis=0)
                     
                     # for j in range(8):
                     #     np_sample[:,j] = signal.filtfilt(b, a, np_sample[:,j])
@@ -563,27 +564,28 @@ class ProcessEmgDataset():
             for filename in os.listdir(os.path.join(self.FOLDERS['data'], self.current_emg_folder)):
                 dataframe = pd.DataFrame(pd.read_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename)))
                 dataframe = dataframe[dataframe['description'] != 'calibration']
-                timestamps_sx = np.concatenate(dataframe['myo_left_timestamps'].values, axis=-1)
-                timestamps_dx = np.concatenate(dataframe['myo_right_timestamps'].values, axis=-1)
-                readings_sx = np.concatenate(dataframe['myo_left_readings'].values, axis=0).transpose(1, 0)
-                readings_dx = np.concatenate(dataframe['myo_right_readings'].values, axis=0).transpose(1, 0)
-
-                fn_interpolate_sx = [interpolate.interp1d(
-                    timestamps_sx,       
-                    readings_sx[ix],         
-                    axis=0,           
-                    kind='linear',    
-                    fill_value='extrapolate' 
-                ) for ix in range(8)]
-                fn_interpolate_dx = [interpolate.interp1d(
-                    timestamps_dx,       
-                    readings_dx[ix],         
-                    axis=0,           
-                    kind='linear',    
-                    fill_value='extrapolate' 
-                ) for ix in range(8)]
-
+                
                 for i, row in dataframe.iterrows():
+                    timestamps_sx = row['myo_left_timestamps']
+                    timestamps_dx = row['myo_right_timestamps']
+                    readings_sx = row['myo_left_readings'].transpose(1, 0)
+                    readings_dx = row['myo_right_readings'].transpose(1, 0)
+
+                    fn_interpolate_sx = [interpolate.interp1d(
+                        timestamps_sx,       
+                        readings_sx[ix],         
+                        axis=0,           
+                        kind='linear',    
+                        fill_value='extrapolate' 
+                    ) for ix in range(8)]
+                    fn_interpolate_dx = [interpolate.interp1d(
+                        timestamps_dx,       
+                        readings_dx[ix],         
+                        axis=0,           
+                        kind='linear',    
+                        fill_value='extrapolate' 
+                    ) for ix in range(8)]
+
                     new_timestamps_sx = np.arange(row['myo_left_timestamps'][0], row['myo_left_timestamps'][-1], sampling_interval)
                     new_timestamps_dx = np.arange(row['myo_right_timestamps'][0], row['myo_right_timestamps'][-1], sampling_interval)
                     dataframe.at[i, 'myo_left_timestamps'] = new_timestamps_sx
@@ -884,8 +886,8 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=3)
-    processing.resample(sampling_rate=12.)
+    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=5)
+    processing.resample(sampling_rate=12)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
     processing.padding(type_padding='zero')
