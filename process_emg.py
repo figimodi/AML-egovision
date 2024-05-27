@@ -1,4 +1,4 @@
-from scipy.signal import butter, lfilter # for filtering
+from scipy.signal import butter, lfilter, filtfilt # for filtering
 from scipy import interpolate
 from typing import Tuple
 import matplotlib.pyplot as plt
@@ -252,7 +252,7 @@ class ProcessEmgDataset():
                     normalized_cutoff = cut_frequency / nyquist_freq
                     b, a = butter(filter_order, normalized_cutoff, btype='lowpass')  # Butterworth filter
                     
-                    np_sample = lfilter(b, a, np_sample.T).T
+                    np_sample = filtfilt(b, a, np_sample, axis=0)
                     
                     # for j in range(8):
                     #     np_sample[:,j] = signal.filtfilt(b, a, np_sample[:,j])
@@ -884,8 +884,8 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=5)
-    processing.resample(sampling_rate=10.)
+    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=3)
+    processing.resample(sampling_rate=12.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
     processing.padding(type_padding='zero')
