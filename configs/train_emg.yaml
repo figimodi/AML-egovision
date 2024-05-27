@@ -14,10 +14,10 @@ emg_path: 'emg/step7-merge'
 
 modalities:
   EMG:
-    train:
-      num_iter: 5000 # number of training iterations with total_batch size
-      lr_steps: 3000 # steps before reducing learning rate
-      eval_freq: 50 # evaluation frequency
+    train: 
+      num_iter: 20000 # number of training iterations with total_batch size
+      lr_steps: 10000 # steps before reducing learning rate
+      eval_freq: 100 # evaluation frequency
 
     test:
       num_clips: 1
@@ -36,10 +36,9 @@ modalities:
         name: "FinalClassifierEMG"
         normalize: False
         kwargs: {}
-        lr_steps: 3000
         lr: 0.05
         sgd_momentum: 0.9
-        weight_decay: 1e-4
+        weight_decay: 1e-7
   RGB:
     train:
       num_iter: 5000 # number of training iterations with total_batch size

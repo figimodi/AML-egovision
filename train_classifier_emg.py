@@ -16,14 +16,9 @@ import wandb
 
 # global variables among training functions
 
-training_iterations = 0
+training_iterations = None
 args_mod = None
-modalities=[args.modality]
-
-np.random.seed(13696641)
-torch.manual_seed(13696641)
-
-torch.set_default_dtype(torch.float64)
+modalities = None
 
 def init_operations():
     """
@@ -31,7 +26,21 @@ def init_operations():
     """
     # logger.info("Running with parameters: " + pformat_dict(args, indent=1))
 
-    # this is needed for multi-GPUs systems where you just want to use a predefined set of GPUs
+    # this is needed for multi-GPUs systems where you just want to use a predefined set of GPUs    
+
+    global training_iterations
+    global args_mod
+    global modalities
+    
+    training_iterations = 0
+    args_mod = None
+    modalities=[args.modality]
+
+    np.random.seed(13696641)
+    torch.manual_seed(13696641)
+
+    torch.set_default_dtype(torch.float64)
+    
     if args.gpus is not None:
         logger.debug('Using only these GPUs: {}'.format(args.gpus))
         os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpus)

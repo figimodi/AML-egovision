@@ -1,5 +1,5 @@
-from scipy import signal, interpolate
-from sklearn.preprocessing import MinMaxScaler
+from scipy.signal import butter, lfilter, filtfilt # for filtering
+from scipy import interpolate
 from typing import Tuple
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -133,28 +133,33 @@ class ProcessEmgDataset():
             left_padding_lenght = diff // 2
             right_padding_lenght = diff - left_padding_lenght
 
-            average_value = sum(value)/len(value)
+            average_value = np.average(value, axis=0)
 
             pad_value = np.array(average_value).reshape(1, 8)
+            
+            if type_padding == "right_only_0":
+                sample[key] = np.pad(value, ((0, size - original_length), (0, 0)), mode='constant')
+                
+            else:
 
-            # Pad the list with zeros on both sides
-            if left_padding_lenght > 0:
-                if type_padding == 'noise':
-                    left_padding = pad_value + np.random.normal(0, 1, (left_padding_lenght, 8))
-                elif type_padding == 'zeros':
-                    left_padding = np.zeros(8).repeat(right_padding_lenght, axis=0)
-                else:
-                    left_padding = pad_value.repeat(left_padding_lenght, axis=0)
-                value = np.concatenate((left_padding, value), axis=0)
-            if right_padding_lenght > 0:
-                if type_padding == 'noise':
-                    right_padding = pad_value + np.random.normal(0, 1, (right_padding_lenght, 8))
-                elif type_padding == 'zeros':
-                    right_padding = np.zeros(8).repeat(right_padding_lenght, axis=0)
-                else:
-                    right_padding = pad_value.repeat(right_padding_lenght, axis=0)
-                value = np.concatenate((value, right_padding), axis=0)
-            sample[key] = value
+                # Pad the list with zeros on both sides
+                if left_padding_lenght > 0:
+                    if type_padding == 'noise':
+                        left_padding = pad_value + np.random.normal(0, 1, (left_padding_lenght, 8))
+                    elif type_padding == 'zeros':
+                        left_padding = np.zeros(8).repeat(right_padding_lenght, axis=0)
+                    else:
+                        left_padding = pad_value.repeat(left_padding_lenght, axis=0)
+                    value = np.concatenate((left_padding, value), axis=0)
+                if right_padding_lenght > 0:
+                    if type_padding == 'noise':
+                        right_padding = pad_value + np.random.normal(0, 1, (right_padding_lenght, 8))
+                    elif type_padding == 'zeros':
+                        right_padding = np.zeros(8).repeat(right_padding_lenght, axis=0)
+                    else:
+                        right_padding = pad_value.repeat(right_padding_lenght, axis=0)
+                    value = np.concatenate((value, right_padding), axis=0)
+                sample[key] = value
 
         return sample
 
@@ -230,27 +235,46 @@ class ProcessEmgDataset():
         train.to_pickle(os.path.join(self.FOLDERS['split'], self.current_split_folder, self.split_files['train']))
         test.to_pickle(os.path.join(self.FOLDERS['split'], self.current_split_folder, self.split_files['test']))
 
-    def __low_pass_filter__(self, data, fs:float=160., cut_frequency:float=5., filter_order:int=2) -> pd.DataFrame:
+    def __low_pass_filter__(self, data, fs:float=160., cut_frequency:float=5., filter_order:int=2, data_target="channel") -> pd.DataFrame:
         nyquist_freq = fs * 0.5  # Nyquist frequency
         normalized_cutoff = cut_frequency / nyquist_freq
-        b, a = signal.butter(filter_order, normalized_cutoff, btype='lowpass')  # Butterworth filter
+        b, a = butter(filter_order, normalized_cutoff, btype='lowpass')  # Butterworth filter
+        
+        if data_target == "sample":
+            for i, sample in data.iterrows():
+                for side in ['myo_left_readings', 'myo_right_readings']:
+                    np_sample = np.array(sample[side]).reshape(-1, 8)
+                    
+                    t = sample[f"{side.split('_')[0]}_{side.split('_')[1]}_timestamps"]
+                    fs = (t.size - 1) / (t[-1] - t[0])
+                    
+                    nyquist_freq = fs * 0.5  # Nyquist frequency
+                    normalized_cutoff = cut_frequency / nyquist_freq
+                    b, a = butter(filter_order, normalized_cutoff, btype='lowpass')  # Butterworth filter
+                    
+                    np_sample = filtfilt(b, a, np_sample, axis=0)
+                    
+                    # for j in range(8):
+                    #     np_sample[:,j] = signal.filtfilt(b, a, np_sample[:,j])
+                    
+                    data.at[i, side] = np_sample
 
-        for side in ['myo_left_readings', 'myo_right_readings']:
-            np_side_data = np.empty((0,8))
-            lengths = []
-            for sample in data[side]:
-                np_sample = np.array(sample)
-                lengths.append(np_sample.shape[0])
-                np_side_data = np.vstack((np_side_data, np_sample))
-            
-            for j in range(8):
-                np_side_data[:,j] = signal.filtfilt(b, a, np_side_data[:,j])
+        else:
+            for side in ['myo_left_readings', 'myo_right_readings']:
+                np_side_data = np.empty((0,8))
+                lengths = []
+                for sample in data[side]:
+                    np_sample = np.array(sample)
+                    lengths.append(np_sample.shape[0])
+                    np_side_data = np.vstack((np_side_data, np_sample))
                 
-            start = 0
-            for i, l in enumerate(lengths):
-                    data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
-                    start+=l
-
+                for j in range(8):
+                    np_side_data[:,j] = signal.filtfilt(b, a, np_side_data[:,j])
+                    
+                start = 0
+                for i, l in enumerate(lengths):
+                        data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
+                        start+=l
         return data
 
     def __normalize__(self, data, data_target:str='channel_global') -> pd.DataFrame: 
@@ -258,7 +282,12 @@ class ProcessEmgDataset():
         with open('stats.pkl', 'rb') as pickle_file:
             stats = pickle.load(pickle_file)
 
-        if data_target == 'channel':
+        if data_target == 'sample':
+            for i, sample in data.iterrows():
+                for side in ['myo_left_readings', 'myo_right_readings']:
+                    np_sample = np.array(sample[side])
+                    data.at[i, side] = (np_sample - np_sample.mean(axis=0))/np_sample.std(axis=0)   
+        elif data_target == 'channel':
             for side in ['myo_left_readings', 'myo_right_readings']:
                 np_side_data = np.empty((0,8))
                 lengths = []
@@ -274,7 +303,6 @@ class ProcessEmgDataset():
             for i, l in enumerate(lengths):
                 data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
                 start+=l                 
-            return data
         elif data_target == 'channel_global':
             sx_data = data['myo_left_readings'].values
             for i in range(len(sx_data)):
@@ -287,7 +315,6 @@ class ProcessEmgDataset():
             data['myo_left_readings'] = sx_data
             data['myo_right_readings'] = dx_data
 
-            return data
         elif data_target == "global":
             #copy from data (dataframe) to np_side_data(np array)
             for side in ['myo_left_readings', 'myo_right_readings']:
@@ -309,14 +336,20 @@ class ProcessEmgDataset():
                     data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
                     start+=l               
         
-            return data
+        return data
 
     def __scale__(self, data, data_target:str='channel_global') -> pd.DataFrame:
         stats = dict
         with open('stats.pkl', 'rb') as pickle_file:
             stats = pickle.load(pickle_file)
 
-        if data_target == 'channel':
+        if data_target == "sample":
+            for i, sample in data.iterrows():
+                for side in ['myo_left_readings', 'myo_right_readings']:
+                    np_sample = np.array(sample[side])
+                    new_sample = (np_sample - np.amin(np_sample)) / (np.amax(np_sample) - np.amin(np_sample)) * 2 - 1
+                    data.at[i, side] = new_sample
+        elif data_target == 'channel':
             for side in ['myo_left_readings', 'myo_right_readings']:
                 np_side_data = np.empty((0,8))
                 lengths = []
@@ -331,8 +364,6 @@ class ProcessEmgDataset():
             for i, l in enumerate(lengths):
                 data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
                 start+=l    
-
-            return data
         elif data_target == 'channel_global':
             sx_data = data['myo_left_readings'].values
             for i in range(len(sx_data)):
@@ -344,8 +375,6 @@ class ProcessEmgDataset():
 
             data['myo_left_readings'] = sx_data
             data['myo_right_readings'] = dx_data
-
-            return data
         elif data_target == "global":
             stats = dict
             with open('stats.pkl', 'rb') as pickle_file:
@@ -371,7 +400,7 @@ class ProcessEmgDataset():
                     data.iat[i, data.columns.get_loc(side)] = np_side_data[start:start+l, :].tolist()
                     start+=l               
         
-            return data
+        return data
 
     def __save_spectogram__(self, specgram_l, specgram_r, name, resize_factor=.25) -> None:
         both_specs = [*specgram_l, *specgram_r]
@@ -597,7 +626,7 @@ class ProcessEmgDataset():
 
     def pre_processing(self, data_target:str='channel_global', operations:list=['filter', 'scale', 'normalize'], fs:float=160., cut_frequency:float=5., filter_order:int=2) -> None:
         map_functions = {
-            'filter': lambda data: self.__low_pass_filter__(data, fs, cut_frequency, filter_order),
+            'filter': lambda data: self.__low_pass_filter__(data, fs, cut_frequency, filter_order, data_target),
             'scale': lambda data: self.__scale__(data, data_target),
             'normalize': lambda data: self.__normalize__(data, data_target),
         }
@@ -622,6 +651,7 @@ class ProcessEmgDataset():
             data = pd.DataFrame(pd.read_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename)))
             for op in operations:
                 data = map_functions[op](data)
+                
             data.to_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename))
 
         print("Dataset was correctly preprocessed")            
@@ -854,11 +884,11 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(data_target="channel", operations=['filter', 'scale', 'normalize'], fs=160., cut_frequency=5., filter_order=2)
-    processing.resample(sampling_rate=10.)
+    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=3)
+    processing.resample(sampling_rate=12.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
-    processing.padding(type_padding='mean')
+    processing.padding(type_padding='zero')
     processing.generate_rgb()
     processing.merge_pickles()
     processing.balance_splits()
