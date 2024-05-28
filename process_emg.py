@@ -145,7 +145,7 @@ class ProcessEmgDataset():
                     if type_padding == 'noise':
                         left_padding = pad_value + np.random.normal(0, 1, (left_padding_lenght, 8))
                     elif type_padding == 'zeros':
-                        left_padding = np.zeros(8).repeat(right_padding_lenght, axis=0)
+                        left_padding = np.zeros(8).reshape(1, 8).repeat(left_padding_lenght, axis=0)
                     else:
                         left_padding = pad_value.repeat(left_padding_lenght).reshape(-1, 8)
                     value = np.concatenate((left_padding, value), axis=0)
@@ -153,7 +153,7 @@ class ProcessEmgDataset():
                     if type_padding == 'noise':
                         right_padding = pad_value + np.random.normal(0, 1, (right_padding_lenght, 8))
                     elif type_padding == 'zeros':
-                        right_padding = np.zeros(8).repeat(right_padding_lenght).reshape(-1, 8)
+                        right_padding = np.zeros(8).reshape(1, 8).repeat(right_padding_lenght, axis=0)
                     else:
                         right_padding = pad_value.repeat(right_padding_lenght, axis=0)
                     value = np.concatenate((value, right_padding), axis=0)
@@ -903,4 +903,4 @@ if __name__ == '__main__':
     processing.padding(type_padding='zeros')
     processing.generate_rgb()
     processing.merge_pickles()
-    processing.balance_splits()
+    processing.balance_splits(train_split_proportion=.05)
