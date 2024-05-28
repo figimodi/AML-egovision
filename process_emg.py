@@ -1,5 +1,5 @@
 from scipy.signal import butter, lfilter, filtfilt, resample_poly, resample
-from scipy import interpolate
+from scipy import signal
 from typing import Tuple
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -586,8 +586,8 @@ class ProcessEmgDataset():
                     new_timestamps_sx = np.linspace(timestamps_sx[0], timestamps_sx[-1], num=num_samples_new_sx + 1, endpoint=True)
                     new_timestamps_dx = np.linspace(timestamps_dx[0], timestamps_dx[-1], num=num_samples_new_dx + 1, endpoint=True)
 
-                    resampled_readings_sx = np.array([resample(readings_sx[ix], num_samples_new_sx) for ix in range(8)])
-                    resampled_readings_dx = np.array([resample(readings_dx[ix], num_samples_new_dx) for ix in range(8)])
+                    resampled_readings_sx = np.array([signal.resample(readings_sx[ix], num_samples_new_sx) for ix in range(8)])
+                    resampled_readings_dx = np.array([signal.resample(readings_dx[ix], num_samples_new_dx) for ix in range(8)])
 
                     dataframe.at[i, 'myo_left_timestamps'] = new_timestamps_sx
                     dataframe.at[i, 'myo_right_timestamps'] = new_timestamps_dx
@@ -896,11 +896,11 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=3)
+    processing.pre_processing(data_target="sample", operations=['filter', 'normalize', 'scale'], fs=160., cut_frequency=5., filter_order=3)
     processing.resample(sampling_rate=10.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
-    processing.padding(type_padding='right_only_0')
+    processing.padding(type_padding='zeros')
     processing.generate_rgb()
     processing.merge_pickles()
     processing.balance_splits()
