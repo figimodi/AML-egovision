@@ -1,4 +1,4 @@
-from scipy.signal import butter, lfilter, filtfilt # for filtering
+from scipy.signal import butter, lfilter, filtfilt, resample_poly, resample
 from scipy import interpolate
 from typing import Tuple
 import matplotlib.pyplot as plt
@@ -138,7 +138,7 @@ class ProcessEmgDataset():
             pad_value = np.array(average_value).reshape(1, 8)
             
             if type_padding == "right_only_0":
-                sample[key] = np.pad(value, ((0, size - original_length), (0, 0)), mode='constant')
+                sample[key] = np.pad(value, ((0, diff), (0, 0)), mode='constant')
             else:
                 # Pad the list with zeros on both sides
                 if left_padding_lenght > 0:
@@ -147,13 +147,13 @@ class ProcessEmgDataset():
                     elif type_padding == 'zeros':
                         left_padding = np.zeros(8).repeat(right_padding_lenght, axis=0)
                     else:
-                        left_padding = pad_value.repeat(left_padding_lenght, axis=0)
+                        left_padding = pad_value.repeat(left_padding_lenght).reshape(-1, 8)
                     value = np.concatenate((left_padding, value), axis=0)
                 if right_padding_lenght > 0:
                     if type_padding == 'noise':
                         right_padding = pad_value + np.random.normal(0, 1, (right_padding_lenght, 8))
                     elif type_padding == 'zeros':
-                        right_padding = np.zeros(8).repeat(right_padding_lenght, axis=0)
+                        right_padding = np.zeros(8).repeat(right_padding_lenght).reshape(-1, 8)
                     else:
                         right_padding = pad_value.repeat(right_padding_lenght, axis=0)
                     value = np.concatenate((value, right_padding), axis=0)
@@ -250,7 +250,8 @@ class ProcessEmgDataset():
                     normalized_cutoff = cut_frequency / nyquist_freq
                     b, a = butter(filter_order, normalized_cutoff, btype='lowpass')  # Butterworth filter
                     
-                    np_sample = lfilter(b, a, np_sample, axis=0)
+                    # np_sample = filtfilt(b, a, np_sample, axis=0)
+                    np_sample = filtfilt(b, a, np_sample, axis=0)
                     
                     # for j in range(8):
                     #     np_sample[:,j] = signal.filtfilt(b, a, np_sample[:,j])
@@ -464,7 +465,7 @@ class ProcessEmgDataset():
             "right_std": right_readings.std(axis=0).reshape(1, 8),
             "g_min": min(left_readings.min(), right_readings.min()),
             "g_max": max(left_readings.max(), right_readings.max()),
-            "g_mean": (left_readings.mean()+right_readings.mean())/2,
+            "g_mean": (left_readings.mean()+right_readings.mean())/2.,
             "g_std": np.vstack((left_readings, right_readings)).reshape(-1,).std()
         }
 
@@ -549,9 +550,9 @@ class ProcessEmgDataset():
 
         print(f'Dataset was correctly augmented')
 
-    def resample(self, sampling_rate:float=10.) -> None:
+    def resample(self, sampling_rate:float=10., data_target = "") -> None:
         try:
-            sampling_interval = 1/sampling_rate
+            #sampling_interval = 1/sampling_rate
 
             next_folder = f'step{self.current_step}-resample'
             if not os.path.exists(os.path.join(self.FOLDERS['data'], next_folder)):
@@ -561,33 +562,37 @@ class ProcessEmgDataset():
             for filename in os.listdir(os.path.join(self.FOLDERS['data'], self.current_emg_folder)):
                 dataframe = pd.DataFrame(pd.read_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename)))
                 dataframe = dataframe[dataframe['description'] != 'calibration']
-                timestamps_sx = np.concatenate(dataframe['myo_left_timestamps'].values, axis=-1)
-                timestamps_dx = np.concatenate(dataframe['myo_right_timestamps'].values, axis=-1)
-                readings_sx = np.concatenate(dataframe['myo_left_readings'].values, axis=0).transpose(1, 0)
-                readings_dx = np.concatenate(dataframe['myo_right_readings'].values, axis=0).transpose(1, 0)
-
-                fn_interpolate_sx = [interpolate.interp1d(
-                    timestamps_sx,       
-                    readings_sx[ix],         
-                    axis=0,           
-                    kind='linear',    
-                    fill_value='extrapolate' 
-                ) for ix in range(8)]
-                fn_interpolate_dx = [interpolate.interp1d(
-                    timestamps_dx,       
-                    readings_dx[ix],         
-                    axis=0,           
-                    kind='linear',    
-                    fill_value='extrapolate' 
-                ) for ix in range(8)]
-
+    
                 for i, row in dataframe.iterrows():
-                    new_timestamps_sx = np.arange(row['myo_left_timestamps'][0], row['myo_left_timestamps'][-1], sampling_interval)
-                    new_timestamps_dx = np.arange(row['myo_right_timestamps'][0], row['myo_right_timestamps'][-1], sampling_interval)
+                    timestamps_sx = row['myo_left_timestamps']
+                    timestamps_dx = row['myo_right_timestamps']
+                    readings_sx = row['myo_left_readings'].transpose(1, 0)
+                    readings_dx = row['myo_right_readings'].transpose(1, 0)
+
+                    # fn_interpolate_sx = [ interpolate.interp1d( timestamps_sx, readings_sx[ix], axis=0, kind='linear', fill_value='extrapolate' ) for ix in range(8)]
+                    # fn_interpolate_dx = [ interpolate.interp1d( timestamps_dx, readings_dx[ix], axis=0, kind='linear', fill_value='extrapolate' ) for ix in range(8)]
+
+                    # new_timestamps_sx = np.linspace(row['myo_left_timestamps'][0], row['myo_left_timestamps'][-1], num=int(round(1+sampling_rate*(row['myo_left_timestamps'][-1] -row['myo_left_timestamps'][0]))), endpoint=True)
+                    # new_timestamps_dx = np.linspace(row['myo_right_timestamps'][0], row['myo_right_timestamps'][-1], num=int(round(1+sampling_rate*(row['myo_left_timestamps'][-1] -row['myo_left_timestamps'][0]))), endpoint=True)
+                    
+                    # dataframe.at[i, 'myo_left_timestamps'] = new_timestamps_sx
+                    # dataframe.at[i, 'myo_right_timestamps'] = new_timestamps_dx
+                    # dataframe.at[i, 'myo_left_readings'] = np.array([fn_interpolate_sx[ix](new_timestamps_sx) for ix in range(8)]).transpose(1, 0)
+                    # dataframe.at[i, 'myo_right_readings'] = np.array([fn_interpolate_dx[ix](new_timestamps_dx) for ix in range(8)]).transpose(1, 0)
+
+                    num_samples_new_sx = int(round(sampling_rate * (timestamps_sx[-1] - timestamps_sx[0])))
+                    num_samples_new_dx = int(round(sampling_rate * (timestamps_dx[-1] - timestamps_dx[0])))
+                    
+                    new_timestamps_sx = np.linspace(timestamps_sx[0], timestamps_sx[-1], num=num_samples_new_sx + 1, endpoint=True)
+                    new_timestamps_dx = np.linspace(timestamps_dx[0], timestamps_dx[-1], num=num_samples_new_dx + 1, endpoint=True)
+
+                    resampled_readings_sx = np.array([resample(readings_sx[ix], num_samples_new_sx) for ix in range(8)])
+                    resampled_readings_dx = np.array([resample(readings_dx[ix], num_samples_new_dx) for ix in range(8)])
+
                     dataframe.at[i, 'myo_left_timestamps'] = new_timestamps_sx
                     dataframe.at[i, 'myo_right_timestamps'] = new_timestamps_dx
-                    dataframe.at[i, 'myo_left_readings'] = np.array([fn_interpolate_sx[ix](new_timestamps_sx) for ix in range(8)]).transpose(1, 0)
-                    dataframe.at[i, 'myo_right_readings'] = np.array([fn_interpolate_dx[ix](new_timestamps_dx) for ix in range(8)]).transpose(1, 0)
+                    dataframe.at[i, 'myo_left_readings'] = resampled_readings_sx.transpose(1, 0)
+                    dataframe.at[i, 'myo_right_readings'] = resampled_readings_dx.transpose(1, 0)
 
                 dataframe.to_pickle(os.path.join(self.FOLDERS['data'], next_folder, filename))
 
@@ -622,7 +627,7 @@ class ProcessEmgDataset():
 
         print(f"Dataset was correclty padded")
 
-    def pre_processing(self, data_target:str='channel_global', operations:list=['filter', 'scale', 'normalize'], fs:float=160., cut_frequency:float=5., filter_order:int=5) -> None:
+    def pre_processing(self, data_target:str, operations:list, fs:float, cut_frequency:float, filter_order:int) -> None:
         map_functions = {
             'filter': lambda data: self.__low_pass_filter__(data, fs, cut_frequency, filter_order, data_target),
             'scale': lambda data: self.__scale__(data, data_target),
@@ -876,13 +881,22 @@ class ProcessEmgDataset():
         self.current_step += 1
         split_train.to_pickle(os.path.join(self.FOLDERS['split'], self.current_split_folder, self.split_files['train']))
         split_test.to_pickle(os.path.join(self.FOLDERS['split'], self.current_split_folder, self.split_files['test']))
+        
+        print(split_train.columns)
+        
+        train_cardinality = split_train.groupby('description').size() 
+        print("TRAIN")
+        print(train_cardinality, end ="\n\n")
+        test_cardinality = split_test.groupby('description').size() 
+        print("TEST")
+        print(test_cardinality)
 
         print('Split files were correctly balanced')
 
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=5)
+    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=3)
     processing.resample(sampling_rate=10.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
