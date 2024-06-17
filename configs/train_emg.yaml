@@ -2,7 +2,7 @@ action: ??? # train or test
 name: ??? # name of the experiment needed for the logs
 split: ???
 modality: ???
-total_batch: 128 # total batch size if training is done with gradient accumulation
+total_batch: 64 # total batch size if training is done with gradient accumulation
 batch_size: 32 # batch size for the forward
 gpus: null # gpus adopted
 wandb_name: null # needed for wandb logging
@@ -16,8 +16,8 @@ modalities:
   EMG:
     train: 
       num_iter: 20000 # number of training iterations with total_batch size
-      lr_steps: 8000 # steps before reducing learning rate
-      eval_freq: 100 # evaluation frequency
+      lr_steps: 16000 # steps before reducing learning rate
+      eval_freq: 25 # evaluation frequency
 
     test:
       num_clips: 1
@@ -30,6 +30,7 @@ modalities:
       data_path: emg # path to RGB data
       tmpl: "BOH" # format of RGB filenames
       features_name: test_feat_action
+      agent: "SO4"
 
     models:
       EMG:
@@ -38,7 +39,7 @@ modalities:
         kwargs: {}
         lr: 0.05
         sgd_momentum: 0.9
-        weight_decay: 1e-7
+        weight_decay: 1e-3
   RGB:
     train:
       num_iter: 5000 # number of training iterations with total_batch size
@@ -69,19 +70,20 @@ modalities:
         normalize: False
         kwargs: {}
         lr_steps: 3000
-        lr: 0.01
+        lr: 0.1
         sgd_momentum: 0.9
         weight_decay: 1e-7
 
   specto:
-    train:
-      num_iter: 500 # number of training iterations with total_batch size
-      lr_steps: 300 # steps before reducing learning rate
-      eval_freq: 25 # evaluation frequency
+    train: 
+      num_iter: 1000 # number of training iterations with total_batch size
+      lr_steps: 600 # steps before reducing learning rate
+      eval_freq: 100 # evaluation frequency
       num_clips: 1
 
     test:
       num_clips: 1
+
     dataset: 
       annotations_path: train_val # path for the annotations data
       shift: nono # shifts of the dataset
@@ -97,7 +99,7 @@ modalities:
         name: "ResNet18"
         normalize: False
         kwargs: {}
-        lr_steps: 300
+        lr_steps: 600
         lr: 0.01
         sgd_momentum: 0.9
-        weight_decay: 1e-7
+        weight_decay: 1e-5
