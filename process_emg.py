@@ -894,7 +894,7 @@ if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
     processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=6)
-    processing.resample(sampling_rate=11.)
+    processing.resample(sampling_rate=10.)
     processing.augment_dataset(time_interval=5)
     processing.generate_spectograms(save_spectrograms=False)
     processing.padding(type_padding='zeros')
