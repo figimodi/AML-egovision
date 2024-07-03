@@ -33,14 +33,14 @@ class TRN(torch.nn.Module):
             scale = self.scales[i]
 
             fc_fusion = nn.Sequential(
-                        nn.ReLU(),
-                        nn.Linear(scale * self.img_feature_dim, num_bottleneck),
-                        nn.ReLU(),
-                        nn.Dropout(p=dropout_prob),# this is the newly added thing
-                        nn.Linear(num_bottleneck, num_bottleneck),
-                        nn.ReLU(),
-                        nn.Dropout(p=dropout_prob),
-                        )
+                nn.ReLU(),
+                nn.Linear(scale * self.img_feature_dim, num_bottleneck),
+                nn.ReLU(),
+                nn.Dropout(p=dropout_prob),# this is the newly added thing
+                nn.Linear(num_bottleneck, num_bottleneck),
+                nn.ReLU(),
+                nn.Dropout(p=dropout_prob),
+                )
             classifier = nn.Linear(num_bottleneck, self.num_class)
             self.fc_fusion_scales += [fc_fusion]
             self.classifier_scales += [classifier]
@@ -64,6 +64,7 @@ class TRN(torch.nn.Module):
                 act_relation = self.fc_fusion_scales[scaleID](act_relation)
                 act_relation = self.classifier_scales[scaleID](act_relation)
                 act_all += act_relation
+                
         return act_all
 
     def return_relationset(self, num_frames, num_frames_relation):

@@ -319,10 +319,10 @@ class ProcessEmgDataset():
 
         return data
 
-    def __save_spectogram__(self, specgram_l, specgram_r, name, resize_factor=0.25):
+    def __save_spectogram__(self, specgram_l, specgram_r, name):
         both_specs = [*specgram_l, *specgram_r]
-        resized_height = 120
-        resized_width = 160
+        resized_height = 180
+        resized_width = 240
 
         trans = transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda t: t.double())])
         
@@ -331,12 +331,15 @@ class ProcessEmgDataset():
         
         for spec in both_specs:
             image_from_plot = librosa.power_to_db(spec)
-            image_from_plot = cv2.resize(image_from_plot, dsize=(resized_width, resized_height), interpolation=cv2.INTER_AREA)
+    
+            image_from_plot = cv2.normalize(image_from_plot, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+            image_from_plot = cv2.resize(image_from_plot, dsize=(resized_width, resized_height), interpolation=cv2.INTER_NEAREST)
+            
             
             #image_from_plot = (image_from_plot - image_from_plot.min()) / (image_from_plot.max() - image_from_plot.min())
-            mean = np.mean(image_from_plot)
-            std = np.std(image_from_plot)
-            image_from_plot = (image_from_plot - mean) / std
+            # mean = np.mean(image_from_plot)
+            # std = np.std(image_from_plot)
+            # image_from_plot = (image_from_plot - mean) / std
 
             all_i.append(image_from_plot)
             

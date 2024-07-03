@@ -197,3 +197,5 @@ emg/*/
 action-net/*/
 !action-net/base/
 stats.pkl
+
+tmp/*
