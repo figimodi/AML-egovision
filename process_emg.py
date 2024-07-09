@@ -402,22 +402,24 @@ class ProcessEmgDataset():
 
     def __save_spectogram__(self, specgram_l, specgram_r, name):
         both_specs = [*specgram_l, *specgram_r]
-        resized_height = 180
-        resized_width = 240
 
         trans = transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda t: t.double())])
         
+        biggest_width = 13
         all_i = []
         all_t = []
         
         for spec in both_specs:
             image_from_plot = librosa.power_to_db(spec)
-    
+            
+            if image_from_plot.shape[1] != biggest_width:
+                pad_left = (biggest_width - image_from_plot.shape[1])//2
+                pad_right = (biggest_width - image_from_plot.shape[1])//2 + (biggest_width - image_from_plot.shape[1])%2        
+                image_from_plot = cv2.copyMakeBorder(image_from_plot, 0, 0, pad_left, pad_right, cv2.BORDER_CONSTANT, 0)
+            
             image_from_plot = cv2.normalize(image_from_plot, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-            image_from_plot = cv2.resize(image_from_plot, dsize=(resized_width, resized_height), interpolation=cv2.INTER_NEAREST)
             
-            
-            #image_from_plot = (image_from_plot - image_from_plot.min()) / (image_from_plot.max() - image_from_plot.min())
+            # image_from_plot = (image_from_plot - image_from_plot.min()) / (image_from_plot.max() - image_from_plot.min())
             # mean = np.mean(image_from_plot)
             # std = np.std(image_from_plot)
             # image_from_plot = (image_from_plot - mean) / std
@@ -685,7 +687,10 @@ class ProcessEmgDataset():
             os.makedirs(os.path.join(self.FOLDERS['data'], self.specto_folder))
         self.current_step += 1
 
-        for filename in os.listdir(os.path.join(self.FOLDERS['data'], self.current_emg_folder)):
+        file_list = os.listdir(os.path.join(self.FOLDERS['data'], self.current_emg_folder))
+        print('Saving spectrograms...')
+        print(f"\r0/{len(file_list)}", end='')
+        for i_file, filename in enumerate(file_list):
             cur_values = []
             agent = filename[:5]
             emg_annotations = pd.read_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename))
@@ -708,8 +713,9 @@ class ProcessEmgDataset():
 
             cur_df = pd.DataFrame(cur_values, columns=['file','description'])
             cur_df.to_pickle(os.path.join(self.FOLDERS['data'], self.specto_folder, filename))
+            print(f"\r{i_file+1}/{len(file_list)}", end='')
 
-        print(f'Dataset specto built')
+        print(f'\rDataset specto built')
 
     def generate_rgb(self) -> None:
         self.rgb_folder = f'step{self.current_step}-rgb'
