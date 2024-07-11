@@ -61,6 +61,8 @@ def main():
         augmentations = {"train": train_augmentations, "test": test_augmentations}
         # the only action possible with this script is "save"
         loader = torch.utils.data.DataLoader(ActionSenseDataset(args.mode, modalities, 
+                                                                split_path=args.split_path, 
+                                                                emg_path=args.emg_path,
                                                                 extract_features=True,
                                                                 sampling=args.sampling,
                                                                 n_frames_per_clip=args.n_frames_per_clip, 
@@ -136,7 +138,7 @@ def save_feat_emg(model, loader, device, it, num_classes):
                                                     args.dataset.agent + "_" +
                                                     args.mode + ".pkl"), 'wb'))
 
-        class_accuracies = [(x / y) * 100 for x, y in zip(model.accuracy.correct, model.accuracy.total)]
+        class_accuracies = [(x / y) * 100 for x, y in zip(model.accuracy.correct, model.accuracy.total) if y!=0]
         logger.info('Final accuracy: top1 = %.2f%%\ttop5 = %.2f%%' % (model.accuracy.avg[1],
                                                                       model.accuracy.avg[5]))
         for i_class, class_acc in enumerate(class_accuracies):

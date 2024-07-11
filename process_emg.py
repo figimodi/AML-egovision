@@ -88,7 +88,7 @@ class ProcessEmgDataset():
                     left_padding = pad_value + np.random.normal(0, 1, (left_padding_lenght, 8))
                 elif type_padding == 'zeros':
                     left_padding = np.zeros(8).reshape(1, 8).repeat(left_padding_lenght, axis=0)
-                elif type_padding == 'mean':
+                else:
                     average_value = np.average(new_data, axis=0)
                     pad_value = np.array(average_value).reshape(1, 8)
                     left_padding = pad_value.repeat(left_padding_lenght).reshape(-1, 8)
@@ -667,7 +667,8 @@ class ProcessEmgDataset():
             # remove t0 from timestamps and frame nubers T0
             # >>> min(emg['start'])
             # 1655239114.183343 ====> calibration start
-            t0 = min(emg['start'])
+            
+            t0 = min(pd.DataFrame(pd.read_pickle(os.path.join(self.FOLDERS['data'], 'base', f'{agent}.pkl')))['start'])
 
             emg['start'] = emg['start'].map(lambda x: self.__remove_t0_time__(x, t0=t0))
             emg['stop'] = emg['stop'].map(lambda x: self.__remove_t0_time__(x, t0=t0))
@@ -791,7 +792,7 @@ if __name__ == '__main__':
     processing.pre_processing(data_target="sample", operations=['filter', 'scale'], cut_frequency=5., filter_order=5)
     processing.resample(sampling_rate=resampling_rate)
     processing.augment_dataset(time_interval=10, num_chunks=20, sampling_rate=resampling_rate, type_padding='zeros')
-    processing.generate_spectograms(save_spectrograms=False)
+    processing.generate_spectograms(save_spectrograms=True)
     processing.generate_rgb()
     processing.merge_pickles()
     processing.balance_splits(train_split_proportion=.05)

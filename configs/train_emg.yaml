@@ -2,13 +2,8 @@ action: ??? # train or test
 name: ??? # name of the experiment needed for the logs
 split: ???
 modality: ???
-<<<<<<< HEAD
 total_batch: 128 # total batch size if training is done with gradient accumulation
 batch_size: 32 # batch size for the forward
-=======
-total_batch: 32 # total batch size if training is done with gradient accumulation
-batch_size: 16 # batch size for the forward
->>>>>>> 637bdf9434cca515130225f74cddb0f9fad66154
 gpus: null # gpus adopted
 wandb_name: null # needed for wandb logging
 resume_from: null # checkpoint directory
@@ -17,7 +12,8 @@ models_dir: null # directory containing all the models
 split_path: 'action-net/step7-balance'
 emg_path: 'emg/step6-merge'
 
-# for emg -> total_batch: 64, batch_size: 32 
+# for rgb -> split_path: action-net/rgb-video
+# for emg -> total_batch: 128, batch_size: 32 
 modalities:
   EMG:
     train: 
@@ -36,14 +32,13 @@ modalities:
       data_path: emg # path to RGB data
       tmpl: "BOH" # format of RGB filenames
       features_name: test_feat_action
-      agent: "SO4"
+      agent: "S04"
 
     models:
       EMG:
         name: "FinalClassifierEMG"
         normalize: False
         kwargs: {}
-        lr_step: 3000
         lr: 0.2
         sgd_momentum: 0.9
         weight_decay: 1e-4

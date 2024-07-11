@@ -262,7 +262,6 @@ class ActionSenseDataset(data.Dataset, ABC):
 
         if modality == 'RGB' or modality == 'RGBDiff':
             # here the offset for the starting index of the sample is added
-
             idx_untrimmed = record.start_frame + idx
             try:
                 img = Image.open(os.path.join(data_path, tmpl.format(idx_untrimmed))) \
