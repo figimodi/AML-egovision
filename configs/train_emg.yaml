@@ -96,9 +96,9 @@ modalities:
 
     models:
       specto:
-        name: "ResNet18"
-        normalize: False
+        name: "LeNet5"
+        normalize: True
         kwargs: {}
-        lr: 1e-5
-        sgd_momentum: 0.9
-        weight_decay: 1e-5
+        lr: 5e-3
+        sgd_momentum: .98
+        weight_decay: 1e-4

@@ -249,11 +249,7 @@ class ProcessEmgDataset():
                     normalized_cutoff = cut_frequency / nyquist_freq
                     b, a = butter(filter_order, normalized_cutoff, btype='lowpass')  # Butterworth filter
                     
-                    # np_sample = filtfilt(b, a, np_sample, axis=0)
                     np_sample = lfilter(b, a, np_sample, axis=0)
-                    
-                    # for j in range(8):
-                    #     np_sample[:,j] = signal.filtfilt(b, a, np_sample[:,j])
                     
                     data.at[i, side] = np_sample
 
@@ -345,8 +341,13 @@ class ProcessEmgDataset():
             for i, sample in data.iterrows():
                 for side in ['myo_left_readings', 'myo_right_readings']:
                     np_sample = np.array(sample[side])
-                    new_sample = (np_sample - np.amin(np_sample)) / (np.amax(np_sample) - np.amin(np_sample)) * 2 - 1
-                    data.at[i, side] = new_sample
+                    # new_sample = (np_sample - np.amin(np_sample)) / (np.amax(np_sample) - np.amin(np_sample)) * 2 - 1
+                    
+                    sample_range = np.amax(np_sample) - np.amin(np_sample)
+                    np_sample = np_sample / (sample_range / 2)
+                    np_sample = np_sample - np.amin(np_sample) - 1
+                    
+                    data.at[i, side] = np_sample
         elif data_target == 'channel':
             for side in ['myo_left_readings', 'myo_right_readings']:
                 np_side_data = np.empty((0,8))
@@ -403,31 +404,26 @@ class ProcessEmgDataset():
     def __save_spectogram__(self, specgram_l, specgram_r, name):
         both_specs = [*specgram_l, *specgram_r]
 
-        trans = transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda t: t.double())])
+        # trans = transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda t: t.double())])
         
-        biggest_width = 13
-        all_i = []
-        all_t = []
+        #BW: 3s->8 5s -> 13 10s -> 26
+        #BH: 3s->17 5s-> 17 10s -> 17
         
-        for spec in both_specs:
-            image_from_plot = librosa.power_to_db(spec)
+        # biggest_width=49
+        
+        all_spectrograms = []
+        
+        for spectrogram in both_specs:
+            spectrogram = spectrogram.double()
+    
+            # if spectrogram.shape[1] < biggest_width:
+            #     pad_left = (biggest_width - spectrogram.shape[1])//2
+            #     pad_right = biggest_width - pad_left
+            #     spectrogram = torch.nn.functional.pad(spectrogram, (pad_left,pad_right,0,0))  
+                
+            all_spectrograms.append(spectrogram)
             
-            if image_from_plot.shape[1] != biggest_width:
-                pad_left = (biggest_width - image_from_plot.shape[1])//2
-                pad_right = (biggest_width - image_from_plot.shape[1])//2 + (biggest_width - image_from_plot.shape[1])%2        
-                image_from_plot = cv2.copyMakeBorder(image_from_plot, 0, 0, pad_left, pad_right, cv2.BORDER_CONSTANT, 0)
-            
-            image_from_plot = cv2.normalize(image_from_plot, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-            
-            # image_from_plot = (image_from_plot - image_from_plot.min()) / (image_from_plot.max() - image_from_plot.min())
-            # mean = np.mean(image_from_plot)
-            # std = np.std(image_from_plot)
-            # image_from_plot = (image_from_plot - mean) / std
-
-            all_i.append(image_from_plot)
-            
-        all_t = [trans(s) for s in all_i]
-        final_t = torch.stack(all_t, dim=0)
+        final_t = torch.stack(all_spectrograms, dim=0)
         
         torch.save(final_t, os.path.join("..","spectrograms", f"{name}.pt"))
 
@@ -476,6 +472,12 @@ class ProcessEmgDataset():
 
     def delete_temps(self) -> None:
         folders = []
+        
+        for filename in os.listdir(os.path.join(os.getcwd(), '..', 'spectrograms')):
+            file_path = os.path.join(os.getcwd(), '..', 'spectrograms', filename)
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.remove(file_path)
+        
         for item in os.listdir(self.FOLDERS['data']):
             if os.path.isdir(os.path.join(self.FOLDERS['data'], item)):
                 folders.append(item)
@@ -662,8 +664,10 @@ class ProcessEmgDataset():
         print("Dataset was correctly preprocessed")            
 
     def generate_spectograms(self, save_spectrograms:bool=True) -> None:
-        backup_spectrograms = {'Get/replace items from refrigerator/cabinets/drawers': 'S00_2_0', 'Peel a cucumber': 'S00_2_15', 'Slice a cucumber': 'S00_2_43', 'Peel a potato': 'S00_2_72', 'Slice a potato': 'S00_2_104', 'Slice bread': 'S00_2_134', 'Spread almond butter on a bread slice': 'S00_2_165', 'Spread jelly on a bread slice': 'S00_2_180', 'Open/close a jar of almond butter': 'S00_2_189', 'Pour water from a pitcher into a glass': 'S00_2_201', 'Clean a plate with a sponge': 'S00_2_224', 'Clean a plate with a towel': 'S00_2_236', 'Clean a pan with a sponge': 'S00_2_243', 'Clean a pan with a towel': 'S00_2_251', 'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_260', 'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_282', 'Stack on table: 3 each large/small plates, bowls': 'S00_2_304', 'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_315', 'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_350', 'Clear cutting board': 'S02_2_48'}
+        # backup_spectrograms = {'Get/replace items from refrigerator/cabinets/drawers': 'S00_2_0', 'Peel a cucumber': 'S00_2_15', 'Slice a cucumber': 'S00_2_43', 'Peel a potato': 'S00_2_72', 'Slice a potato': 'S00_2_104', 'Slice bread': 'S00_2_134', 'Spread almond butter on a bread slice': 'S00_2_165', 'Spread jelly on a bread slice': 'S00_2_180', 'Open/close a jar of almond butter': 'S00_2_189', 'Pour water from a pitcher into a glass': 'S00_2_201', 'Clean a plate with a sponge': 'S00_2_224', 'Clean a plate with a towel': 'S00_2_236', 'Clean a pan with a sponge': 'S00_2_243', 'Clean a pan with a towel': 'S00_2_251', 'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_260', 'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_282', 'Stack on table: 3 each large/small plates, bowls': 'S00_2_304', 'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_315', 'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils': 'S00_2_350', 'Clear cutting board': 'S02_2_48'}
 
+        backup_spectrograms = {}
+        
         n_fft = 32
         win_length = None
         hop_length = 4
@@ -692,7 +696,6 @@ class ProcessEmgDataset():
         print(f"\r0/{len(file_list)}", end='')
         for i_file, filename in enumerate(file_list):
             cur_values = []
-            agent = filename[:5]
             emg_annotations = pd.read_pickle(os.path.join(self.FOLDERS['data'], self.current_emg_folder, filename))
             for sample_no in range(len(emg_annotations)):
                 signal_l = torch.Tensor(np.array(emg_annotations.iloc[sample_no].myo_left_readings))
@@ -706,6 +709,8 @@ class ProcessEmgDataset():
                     if save_spectrograms:
                         self.__save_spectogram__(freq_signal_l, freq_signal_r, name)
                     new_row_data = [name, label]
+                    if label not in backup_spectrograms.keys():
+                       backup_spectrograms[label] = name
                     cur_values.append(new_row_data)
                 except RuntimeError:
                     new_row_data = [backup_spectrograms[label], label]
@@ -902,11 +907,11 @@ class ProcessEmgDataset():
 if __name__ == '__main__':
     processing = ProcessEmgDataset()
     processing.delete_temps()
-    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=6)
+    processing.pre_processing(data_target="sample", operations=['filter', 'scale'], fs=160., cut_frequency=5., filter_order=5)
     processing.resample(sampling_rate=10.)
-    processing.augment_dataset(time_interval=5)
-    processing.generate_spectograms(save_spectrograms=True)
+    processing.augment_dataset(time_interval=5.)
     processing.padding(type_padding='zeros')
+    processing.generate_spectograms(save_spectrograms=True)
     processing.generate_rgb()
     processing.merge_pickles()
-    processing.balance_splits(train_split_proportion=.05)
+    processing.balance_splits(train_split_proportion=0)
