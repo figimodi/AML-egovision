@@ -17,25 +17,25 @@ import h5py
 import numpy as np
 
 emg_descriptions_to_labels = [
-    'Clean a pan with a sponge',
-    'Clean a pan with a towel',
-    'Clean a plate with a sponge',
-    'Clean a plate with a towel',
-    'Clear cutting board',
-    'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
     'Get/replace items from refrigerator/cabinets/drawers',
-    'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
-    'Open/close a jar of almond butter',
     'Peel a cucumber',
-    'Peel a potato',
-    'Pour water from a pitcher into a glass',
-    'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
+    'Clear cutting board',
     'Slice a cucumber',
+    'Peel a potato',
     'Slice a potato',
     'Slice bread',
     'Spread almond butter on a bread slice',
     'Spread jelly on a bread slice',
+    'Open/close a jar of almond butter',
+    'Pour water from a pitcher into a glass',
+    'Clean a plate with a sponge',
+    'Clean a plate with a towel',
+    'Clean a pan with a sponge',
+    'Clean a pan with a towel',
+    'Get items from cabinets: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
+    'Set table: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
     'Stack on table: 3 each large/small plates, bowls',
+    'Load dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
     'Unload dishwasher: 3 each large/small plates, bowls, mugs, glasses, sets of utensils',
 ]
 
@@ -262,7 +262,6 @@ class ActionSenseDataset(data.Dataset, ABC):
 
         if modality == 'RGB' or modality == 'RGBDiff':
             # here the offset for the starting index of the sample is added
-
             idx_untrimmed = record.start_frame + idx
             try:
                 img = Image.open(os.path.join(data_path, tmpl.format(idx_untrimmed))) \

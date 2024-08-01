@@ -6,6 +6,8 @@ sampling: dense
 n_frames_per_clip: 16
 n_clips: 5
 stride: 2
+split_path: 'action-net/rgb-video'
+emg_path: 'emg/step6-merge'
 # save:
 #   num_clips: 5
 #   dense_sampling:

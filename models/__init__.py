@@ -8,3 +8,4 @@ from models.FinalClassifierCNN import FinalClassifierCNN
 from models.ResNet18 import ResNet18
 from models.LeNet5 import LeNet5
 from models.LeNet5_CACO import LeNet5_CACO
+from models.FusionClassifier import FusionClassifier
