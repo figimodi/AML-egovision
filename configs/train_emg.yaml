@@ -4,18 +4,16 @@ split: ???
 modality: ???
 total_batch: 64 # total batch size if training is done with gradient accumulation
 batch_size: 32 # batch size for the forward
-total_batch: 128 # total batch size if training is done with gradient accumulation
-batch_size: 32 # batch size for the forward
 gpus: null # gpus adopted
 wandb_name: null # needed for wandb logging
 resume_from: null # checkpoint directory
 logname: null # name of the logs
 models_dir: null # directory containing all the models
-split_path: 'action-net/rgb-video'
-emg_path: 'emg/step6-merge'
+split_path: action-net/step7-balance
+emg_path: emg/step6-merge
 
 # for rgb -> split_path: action-net/rgb-video
-# for emg -> total_batch: 128, batch_size: 32, split_path: step7-balance
+# for emg -> total_batch_size: 32, split_path: step7-balance
 modalities:
   EMG:
     train: 
