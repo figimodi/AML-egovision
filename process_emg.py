@@ -805,4 +805,4 @@ if __name__ == '__main__':
     processing.generate_spectograms(save_spectrograms=True)
     processing.generate_rgb()
     processing.merge_pickles()
-    processing.balance_splits(train_split_proportion=0)
+    processing.balance_splits(train_split_proportion=.05)
