@@ -801,7 +801,7 @@ if __name__ == '__main__':
     processing.delete_temps()
     processing.pre_processing(data_target="sample", operations=['filter', 'scale'], cut_frequency=5., filter_order=5)
     processing.resample(sampling_rate=10.)
-    processing.augment_dataset(time_interval=5.)
+    processing.augment_dataset(time_interval=10.)
     processing.generate_spectograms(save_spectrograms=True)
     processing.generate_rgb()
     processing.merge_pickles()

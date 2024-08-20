@@ -48,6 +48,11 @@ def plot_features_PCA(args):
             video_names = [x['video_name'] for x in data['features']]
             central_frames = [os.path.join(base_image_path, f"{video_names[idx]}/img_{sample_central_frames[idx]:010d}.jpg") for idx in range(len(video_names))]
 
+    km = KMeans(n_clusters=8, random_state=62)
+    km.fit(reduced_features)
+    
+    predictions = km.predict(reduced_features)
+        
     reduced_features = pca.fit_transform(reduced_features)
     reduced_features = np.array(reduced_features)
     reduced_features = reduced_features.reshape(reduced_features.shape[0], 3 if plot_3d else 2)
@@ -59,10 +64,6 @@ def plot_features_PCA(args):
         fig, ax = plt.subplots()
     
     # TODO kmeans before pca?
-    km = KMeans(n_clusters=8, random_state=62)
-    km.fit(reduced_features)
-    
-    predictions = km.predict(reduced_features)
     
     if not plot_3d and args.get('use_frames', False):
         for i, coord in enumerate(reduced_features):
@@ -95,7 +96,7 @@ def plot_features_PCA(args):
     else:
         ax.scatter(reduced_features[:, 0], reduced_features[:, 1], c=predictions)
 
-    if not plot_3d:
+    if not plot_3d and not args.get('use_frames', False):
         # Define a list of markers
         markers = ['o', '^', 's', 'p', 'P', '*', 'D', 'v']
         marker_iter = iter(markers)
@@ -104,8 +105,8 @@ def plot_features_PCA(args):
         for action, coordinate in average_coord_per_action.items():
             x, y = coordinate
             marker = next(marker_iter)
-            plt.scatter(x, y, marker=marker, s=200, edgecolor='black', linewidths=2, label=action)
-            plt.legend(fontsize='small', markerscale=0.7)
+            # plt.scatter(x, y, marker=marker, s=200, edgecolor='black', linewidths=2, label=action)
+            # plt.legend(fontsize='small', markerscale=0.7)
 
     plt.gcf().set_size_inches(10, 7)
     plt.savefig(output_image_path, dpi=300)
@@ -253,6 +254,11 @@ def plot_features_TSNE(args):
             
             labels = samples['verb_class']
             actions = [label_actions[label] for label in labels] 
+            
+            sample_central_frames = samples['start_frame'] + (samples['stop_frame'] - samples['start_frame'])//2
+
+            video_names = [x['video_name'] for x in data['features']]
+            central_frames = [os.path.join(base_image_path, f"{video_names[idx]}/img_{sample_central_frames[idx]:010d}.jpg") for idx in range(len(video_names))]
 
     extracted_samples = pca.fit_transform(extracted_samples)
     extracted_samples = np.array(extracted_samples)
@@ -269,6 +275,14 @@ def plot_features_TSNE(args):
     # plt.scatter(extracted_samples[:, 0], extracted_samples[:, 1], c=predictions)
 
     color = iter(plt.cm.rainbow(np.linspace(0, 1, NUM_CLASSES)))
+    
+    fig, ax = plt.subplots()
+    
+    if args.get('use_frames', False):
+        for i, coord in enumerate(extracted_samples):
+            imagebox = OffsetImage(plt.imread(central_frames[i]), zoom=0.1)
+            ab = AnnotationBbox(imagebox, coord, frameon=False)
+            ax.add_artist(ab)
 
     for label in range(NUM_CLASSES):
         cl = next(color)
@@ -306,7 +320,9 @@ def plot_features_TSNE(args):
     #     plt.scatter(x, y, marker=marker, s=200, edgecolor='black', linewidths=2, label=action)
     #     plt.legend(fontsize='small', markerscale=0.7, loc="upper right")
 
-    plt.legend(fontsize='small', markerscale=0.7, loc="lower right")
+    if not args.get('use_frames', False):
+        plt.legend(fontsize='small', markerscale=0.7, loc="lower right")
+        
     plt.gcf().set_size_inches(12, 8)
     plt.savefig(output_image_path, dpi=300)
     plt.show()
@@ -316,9 +332,9 @@ def plot_features_TSNE(args):
 if __name__ == '__main__':
     cli_args = OmegaConf.from_cli()
     print(cli_args)
-    # plot_features_PCA(cli_args)
+    plot_features_PCA(cli_args)
     # plot_features_LDA(cli_args)
     # plot_features_PCA_LDA(cli_args)
-    plot_features_TSNE(cli_args)
+    # plot_features_TSNE(cli_args)
 
     # TODO: try isomap, density-based clustering vs actual labels, use some different clustering algorithms from k-means (DBSCAN)

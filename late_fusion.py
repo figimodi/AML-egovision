@@ -219,7 +219,7 @@ def find_best_alpha_beta_gamma():
             best_alpha = alpha
             best_gamma = gamma
 
-    print(f'RGB+specto')
+    print(f'EMG+specto')
     print(f'Best alpha: {best_alpha:.2f}, Best gamma: {best_gamma:.2f}')
     print(f'Best Top-1 accuracy: {best_top1_accuracy*100:.3f}')
     print(f'Best Top-5 accuracy: {best_top5_accuracy*100:.3f}')
@@ -250,4 +250,7 @@ def find_best_alpha_beta_gamma():
 
 if __name__ == '__main__':
     main()
-    find_best_alpha_beta_gamma()
+    # find_best_alpha_beta_gamma()
+    acc1, acc5 = compute_accuracy(1, 0, 0)
+    print(acc1)
+    print(acc5)

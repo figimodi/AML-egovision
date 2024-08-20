@@ -2,11 +2,11 @@ from torch import nn
 from torchvision import ops
 
 class MLP(nn.Module):
-    def __init__(self, num_classes, input_size=1024, hidden_size=512):
+    def __init__(self, num_classes=20, input_size=1024, hidden_size=512):
         super().__init__()
 
         # using torchvision built in MLP
-        self.clf = ops.MLP(in_channels=input_size, hidden_channels=[hidden_size, hidden_size, num_classes], dropout=0.5)
+        self.clf = ops.MLP(in_channels=input_size, hidden_channels=[hidden_size, hidden_size, num_classes], dropout=0.7)
 
         # self.relu = nn.ReLU()
         # self.fc1 = nn.Linear(input_size, hidden_size)
