@@ -250,7 +250,4 @@ def find_best_alpha_beta_gamma():
 
 if __name__ == '__main__':
     main()
-    # find_best_alpha_beta_gamma()
-    acc1, acc5 = compute_accuracy(0, 1, 0)
-    print(acc1)
-    print(acc5)
+    find_best_alpha_beta_gamma()

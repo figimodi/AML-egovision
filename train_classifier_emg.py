@@ -216,8 +216,8 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
                 logger.info("New best accuracy {:.2f}%".format(val_metrics['top1']))
                 action_classifier.best_iter = real_iter
                 action_classifier.best_iter_score = val_metrics['top1']
-
-            action_classifier.save_model(real_iter, val_metrics['top1'], prefix=None)
+                action_classifier.save_model(real_iter, val_metrics['top1'], prefix=None)
+            
             action_classifier.train(True)
 
 

@@ -36,7 +36,7 @@ modalities:
 
     models:
       fusion:
-        name: "FusionClassifier"
+        name: "FusionClassifierEMGRGBspecto"
         normalize: False
         kwargs: {}
         lr: 0.2

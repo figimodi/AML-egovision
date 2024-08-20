@@ -51,12 +51,13 @@ def init_operations():
         wandb.run.name = args.name + "_" + args.shift.split("-")[0] + "_" + args.shift.split("-")[-1]
 
 def main():
-    global training_iterations, modalities, args_mod
+    global training_iterations, modalities, args_mod, fusion_modalities
     init_operations()
     
     modality = args.modality
     args_mod = args.modalities[modality]
     num_classes = 20
+    fusion_modalities = ['EMG', 'RGB', 'specto']
     
     # device where everything is run
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -92,14 +93,14 @@ def main():
         print("Train loader")
         
         train_loader = torch.utils.data.DataLoader(
-            ActionSenseDataset('train', ['EMG', 'RGB'], args.split_path, args.emg_path),
+            ActionSenseDataset('train', fusion_modalities, args.split_path, args.emg_path),
             batch_size=args.batch_size, shuffle=True, num_workers=args_mod.dataset.workers, pin_memory=True, drop_last=True
         )
         
         print("Val loader")
 
         val_loader = torch.utils.data.DataLoader(
-                ActionSenseDataset('test', ['EMG', 'RGB'], args.split_path, args.emg_path),
+                ActionSenseDataset('test', fusion_modalities, args.split_path, args.emg_path),
             batch_size=args.batch_size, shuffle=False, num_workers=args_mod.dataset.workers, pin_memory=True, drop_last=False
         )
         
@@ -110,7 +111,7 @@ def main():
             action_classifier.load_last_model(args.resume_from)
         
         val_loader = torch.utils.data.DataLoader(
-            ActionSenseDataset("test", [args.modality]),
+            ActionSenseDataset("test", fusion_modalities),
             batch_size=args.batch_size, shuffle=False, num_workers=args_mod.dataset.workers, pin_memory=True, drop_last=False
         )
 
@@ -128,7 +129,7 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
     """
     
     
-    global training_iterations, modalities, args_mod
+    global training_iterations, modalities, args_mod, fusion_modalities
 
     data_loader_source = iter(train_loader)
     action_classifier.train(True)
@@ -170,10 +171,11 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
 
         # skip aggregation but concatenate features
         # source_data.shape = (32, 1, 5120) containing the 5x1024 clips flattened
+        
         source_data['RGB'] = source_data['RGB'].view(32, -1).unsqueeze(1)
         source_data['RGB'] = source_data['RGB'].to(torch.double)
             
-        for m in ['EMG', 'RGB']:
+        for m in fusion_modalities:
             data[m] = source_data[m].to(device)
             
         logits, _ = action_classifier.forward(data)
@@ -214,7 +216,7 @@ def validate(model, val_loader, device, it, num_classes):
     it: int, iteration among the training num_iter at which the model is tested
     num_classes: int, number of classes in the classification problem
     """
-    global modalities, args_mod
+    global modalities, args_mod, fusion_modalities
 
     model.reset_acc()
     model.train(False)
@@ -226,15 +228,15 @@ def validate(model, val_loader, device, it, num_classes):
             label = label.to(device)
 
             clips = {}
-            for m in ['EMG', 'RGB']:
+            for m in fusion_modalities:
                 clips[m] = data[m].to(device).double()
             
             output, _ = model(clips)
 
             model.compute_accuracy(output, label)
 
-            if (i_val + 1) % (len(val_loader) // 5) == 0:
-                logger.info("[{}/{}] top1= {:.3f}% top5 = {:.3f}%".format(i_val + 1, len(val_loader), model.accuracy.avg[1], model.accuracy.avg[5]))
+            # if (i_val + 1) % (len(val_loader) // 5) == 0:
+            logger.info("[{}/{}] top1= {:.3f}% top5 = {:.3f}%".format(i_val + 1, len(val_loader), model.accuracy.avg[1], model.accuracy.avg[5]))
 
         class_accuracies = [(x / y) * 100 for x, y in zip(model.accuracy.correct, model.accuracy.total)]
         logger.info('Final accuracy: top1 = %.2f%%\ttop5 = %.2f%%' % (model.accuracy.avg[1], model.accuracy.avg[5]))

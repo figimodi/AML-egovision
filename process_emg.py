@@ -413,7 +413,7 @@ class ProcessEmgDataset():
                 folders.append(item)
 
         for folder in folders:   
-            if folder == 'base':
+            if folder == 'base' or folder == 'rgb-video':
                 continue
             for filename in os.listdir(os.path.join(self.FOLDERS['split'], folder)):
                 os.remove(os.path.join(self.FOLDERS['split'], folder, filename))

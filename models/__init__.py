@@ -6,5 +6,8 @@ from models.RNN import RNN
 from models.FinalClassifierEMG import FinalClassifierEMG
 from models.FinalClassifierCNN import FinalClassifierCNN
 from models.LeNet5 import LeNet5
-from models.FusionClassifier import FusionClassifier
+from models.FusionClassifierEMGRGB import FusionClassifierEMGRGB
+from models.FusionClassifierEMGspecto import FusionClassifierEMGspecto
+from models.FusionClassifierEMGRGBspecto import FusionClassifierEMGRGBspecto
+from models.FusionClassifierRGBspecto import FusionClassifierRGBspecto
 from models.FinalClassifierEMG_L2 import FinalClassifierEMG_L2

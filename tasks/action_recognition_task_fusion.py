@@ -71,7 +71,7 @@ class ActionRecognitionFusion(tasks.Task, ABC):
         Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]
             output logits and features
         """
-        logits, feat = self.task_models['fusion'](emg=data['EMG'], rgb=data['RGB'], **kwargs)
+        logits, feat = self.task_models['fusion'](emg=data['EMG'], rgb=data['RGB'], specto=data['specto'], **kwargs)
 
         return logits, feat
 

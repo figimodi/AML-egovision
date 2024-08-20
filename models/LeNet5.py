@@ -11,7 +11,7 @@ class LeNet5(nn.Module):
         self.num_classes = num_classes
         self.conv1 = nn.Conv2d(in_channels=16, out_channels=6, kernel_size=3, padding=2)  # Change input channels to 16
         self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=3)
-        self.fc1 = nn.Linear(1, 120)
+        self.fc1 = nn.Linear(96, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, self.num_classes)
 
