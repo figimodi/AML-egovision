@@ -1,7 +1,7 @@
 from torch import nn, cat
 
 class FinalClassifierEMG(nn.Module):
-    def __init__(self, input_size=16, hidden_size=50, num_layers=1, num_classes=20, dropout_prob=.2):
+    def __init__(self, input_size=16, hidden_size=50, num_layers=2, num_classes=20, dropout_prob=.2):
         super(FinalClassifierEMG, self).__init__()
 
         self.hidden_size = hidden_size

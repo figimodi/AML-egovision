@@ -106,6 +106,7 @@ def balance_splits(train_split_proportion:float=.05) -> None:
 3. Into tasks/action_recognition_task_fusion,py modify line 74 to pass the data corresponding to the modalities of the fusion, examples are:
 `logits, feat = self.task_models['fusion'](emg=data['EMG'], rgb=data['RGB'], specto=data['specto'], **kwargs)` for a combination of emg, rgb and specto
 `logits, feat = self.task_models['fusion'](emg=data['EMG'], specto=data['specto'], **kwargs)` for a combination of emg and specto
+4. Launch `python.exe .\train_classifier_fusion.py action=train name=fusion_EMG_RGB split=train modality=fusion`
 
 ## Launch late-fusion
 1. Launch `python late_fusion.py split=train action=train name=late modality=EMG`

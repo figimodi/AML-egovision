@@ -57,7 +57,7 @@ def main():
     modality = args.modality
     args_mod = args.modalities[modality]
     num_classes = 20
-    fusion_modalities = ['EMG', 'RGB', 'specto']
+    fusion_modalities = ['EMG', 'RGB'] #['EMG', 'RGB', 'specto']
     
     # device where everything is run
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

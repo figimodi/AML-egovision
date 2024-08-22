@@ -7,7 +7,7 @@ class LSTM(nn.Module):
         super().__init__()
 
         self.lstm = nn.LSTM(input_size, hidden_size, 1, batch_first=True)
-        self.dropout = nn.Dropout(p=0.3)
+        self.dropout = nn.Dropout(p=0.5)
         self.fc1 = nn.Linear(hidden_size, num_classes)
 
     def forward(self, x):
