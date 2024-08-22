@@ -21,10 +21,6 @@ class LeNet5(nn.Module):
         x = F.max_pool2d(F.relu(self.conv2(x)), (2, 2))
         x = x.view(x.size(0), -1)
         
-        if not hasattr(self, '_fc1_input_size') or self._fc1_input_size != x.size(1):
-            self._fc1_input_size = x.size(1)
-            self.fc1 = nn.Linear(self._fc1_input_size, 120).to(x.device)
-        
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)

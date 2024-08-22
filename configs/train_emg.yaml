@@ -9,7 +9,7 @@ wandb_name: null # needed for wandb logging
 resume_from: null # checkpoint directory
 logname: null # name of the logs
 models_dir: null # directory containing all the models
-split_path: action-net/step7-balance
+split_path: action-net/rgb-video
 emg_path: emg/step6-merge
 
 # for rgb -> split_path: action-net/rgb-video
